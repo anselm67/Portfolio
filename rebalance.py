@@ -6,8 +6,13 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 import numpy as np
 import math
+import sys
+import datetime
 
-parser = argparse.ArgumentParser(description="Explores a rebalncing strategy.")
+parser = argparse.ArgumentParser(
+    prog='rebalance.py',
+    description="Explores a rebalancing strategy."
+)
 parser.add_argument('--symbol', type=str, default='VTI',
                     help='Initial amount of cash to work with.')
 parser.add_argument('--cash', type=int, default=10000,
@@ -18,16 +23,26 @@ parser.add_argument('--bound', type=float, default=0.25,
                     help='Bounds for buy/sell trigger; Sell at (1-bound)*target and buy at (1+bound)*target.')
 parser.add_argument('-v', '--verbose', action='count', default=0,
                     help='Chat some as we procceed.')
+parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
+                    dest='from_datetime',
+                    help='Restrict analysis to data later than this date (YYYY-MM-DD)')
+parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
+                    dest='till_datetime',
+                    help='Restrict analysis to data earlier than this date (YYYY-MM-DD)')
 # Executable commands from command line. None passed? We'll just run rebalance.
 parser.add_argument('--plot-by-target', action='store_true', default=False,
                     help='Plot gains by varying target cash allocation ratios from 0 to 1.')
 parser.add_argument('--plot-by-bound', action='store_true', default=False,
                     help='Plot gains by varying trigger bound from 0.1 to 0.5')
+
 args = parser.parse_args()
 
 def verbose(level: int, msg: str):
     if args.verbose >= level:
         print(msg)
+
+def exit(msg: str):
+    sys.exit(msg)
 
 def rebalance(data: pd.DataFrame, 
             target: float, 
@@ -73,9 +88,17 @@ def plot_by_bound(data):
     plt.show()
 
 def main():
-    verbose(1, f"Fetching {args.symbol} data...")
+    # Fetch and cut the data according to the command line.
     ticker = yf.Ticker(args.symbol)
     data = ticker.history(period='max', end=pd.Timestamp.today(), interval='1d')
+    data = data.tz_localize(None)
+    if args.from_datetime is not None:
+        data = data[args.from_datetime:]
+    if args.till_datetime is not None:
+        data = data[:args.till_datetime]
+    if len(data) == 0:
+        exit(f"No data available for {args.symbol}, check your spelling.")
+    # Do as requested.
     verbose(1, f"Using {args.symbol} data from {data.index[0]} till {data.index[-1]}")
     if args.plot_by_target:
         plot_by_target(data)
