@@ -54,7 +54,7 @@ def rebalance(data: pd.DataFrame,
 
     def display(level=1, prefix=''):
         verbose(level, f"{prefix}${cash + stock * price:<9,.2f}: {stock} shares @ ${price:.2f} and ${cash:.2f} {100.0 * cash / (cash + stock * price):.2f}%")
-    display()
+    display(prefix="Start => ")
     for ts, row in data.shift(-1).iterrows():
         if np.isnan(row.Close):
             break
@@ -74,7 +74,7 @@ def rebalance(data: pd.DataFrame,
                 stock += buy
                 cash -= buy * price
                 display(2, f"{ts} BOUGHT {buy:3d} => ")
-    display()
+    display(prefix="Finish => ")
     return cash + stock * price
 
 def plot_by_target(data):
@@ -83,7 +83,7 @@ def plot_by_target(data):
     plt.show()
 
 def plot_by_bound(data):
-    scope = np.linspace(0.1, 0.5, 20)
+    scope = np.linspace(0.1, 0.5, 50)
     plt.plot(scope, np.array([rebalance(data, args.target, args.cash, bound) for bound in scope]))
     plt.show()
 
