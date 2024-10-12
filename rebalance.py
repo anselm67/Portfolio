@@ -14,9 +14,9 @@ parser = argparse.ArgumentParser(
     description="Explores a rebalancing strategy."
 )
 parser.add_argument('--symbol', type=str, default='VTI',
-                    help='Initial amount of cash to work with.')
-parser.add_argument('--cash', type=int, default=10000,
                     help='Stock symbol to work with.')
+parser.add_argument('--cash', type=int, default=10000,
+                    help='Initial amount of cash to work with.')
 parser.add_argument('--target', type=float, default=0.2,
                     help='Target allocation ratio of cash.')
 parser.add_argument('--bound', type=float, default=0.25,
