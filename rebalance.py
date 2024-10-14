@@ -9,6 +9,25 @@ import math
 import sys
 import datetime
 
+def parse_range(arg: str, min_value = 0.0, max_value = 1.0, ordered=True):
+    try:
+        lower, upper = (0, 0)
+        values = arg.split(':')
+        if len(values) == 1:
+            lower, upper = float(arg), float(arg)
+        else:
+            lower, upper = float(values[0]), float(values[1])
+        if not ( min_value <= lower <= max_value):
+            raise ValueError(f"Lower bound {lower} should be in [{min_value}:{max_value}]")
+        if not ( min_value <= upper <= max_value):
+            raise ValueError(f"Upper bound {lower} should greater than [{min_value}:{max_value}]")
+        if ordered and lower > upper:
+            raise ValueError(f"Lower bound should be greater than upper boud {upper}")
+        return (lower, upper)
+    except ValueError as ex:
+        print(ex)
+        raise argparse.ArgumentTypeError(f"Invalid range {arg}, expect 'lower:upper'")
+
 parser = argparse.ArgumentParser(
     prog='rebalance.py',
     description="Explores a rebalancing strategy."
@@ -19,8 +38,10 @@ parser.add_argument('--cash', type=int, default=10000,
                     help='Initial amount of cash to work with.')
 parser.add_argument('--target', type=float, default=0.2,
                     help='Target allocation ratio of cash.')
-parser.add_argument('--bound', type=float, default=0.25,
-                    help='Bounds for buy/sell trigger; Sell at (1-bound)*target and buy at (1+bound)*target.')
+parser.add_argument('--bound', type=lambda s : parse_range(s, ordered=False), default=(0.25, 0.25),
+                    metavar='lower:upper',
+                    help="""Bounds for buy/sell trigger; Sell at (1-lower)*target and buy at (1+upper)*target.
+                    If provided as BOUND the range is [BOUND, -BOUND], otherwise it can be proivided as LOWER:UPPER""")
 parser.add_argument('-v', '--verbose', action='count', default=0,
                     help='Chat some as we procceed.')
 parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
@@ -32,10 +53,16 @@ parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
 # Executable commands from command line. None passed? We'll just run rebalance.
 parser.add_argument('--plot', action='store_true', default=False,
                     help='Plot portfolio values by dates.')
-parser.add_argument('--plot-by-target', action='store_true', default=False,
-                    help='Plot gains by varying target cash allocation ratios from 0 to 1.')
-parser.add_argument('--plot-by-bound', action='store_true', default=False,
-                    help='Plot gains by varying trigger bound from 0.1 to 0.5')
+parser.add_argument('--plot-by-target', nargs='?', const='0.0:1.0',
+                    metavar='from:to',
+                    type=parse_range,
+                    help="""Plot gains by varying target cash allocation ratios from 0 to 1.
+You can changes the bounds by providing them e.g. --plot-by-target from:to""")
+parser.add_argument('--plot-by-bound', nargs='?', const='0.1:0.5',
+                    metavar='from:to',
+                    type=parse_range,
+                    help="""Plot gains by varying trigger bound defaults to 0.1 to 0.5.
+You can change the bounds by providing them e.g. --plot from:to""")
 
 args = parser.parse_args()
 
@@ -49,7 +76,7 @@ def exit(msg: str):
 def rebalance_values(data: pd.DataFrame, 
                      target: float, 
                      initial_cash: float, 
-                     bound: float=.25):
+                     bound: tuple[float, float]=(0.25, .25)):
     price = data.iloc[0].Close
     stock = math.floor((1.0 - target) * initial_cash / price)
     cash = initial_cash - stock * price
@@ -62,14 +89,14 @@ def rebalance_values(data: pd.DataFrame,
             break
         price = row.Close
         new_total = cash + stock * price
-        if cash / new_total < (1.0 - bound) * target:
+        if cash / new_total < (1.0 - bound[0]) * target:
             target_cash = target* new_total
             sell = math.floor((target_cash - cash) / price)
             if sell > 0:
                 stock -= sell
                 cash += sell * price
                 display(2, f"{ts} SOLD   {sell:3d} => ")
-        elif cash / new_total > (1.0 + bound) * target:
+        elif cash / new_total > (1.0 + bound[1]) * target:
             target_cash = target * new_total
             buy = math.floor((cash - target_cash) / price)
             if buy > 0:
@@ -86,7 +113,7 @@ def rebalance_values(data: pd.DataFrame,
 def rebalance(data: pd.DataFrame, 
             target: float, 
             initial_cash: float, 
-            bound: float=.25):
+            bound: tuple[float, float]=(0.25, 0.25)):
     values = rebalance_values(data, target, initial_cash, bound)
     return values.iloc[-1].Total
 
@@ -95,9 +122,9 @@ def plot_by_target(data):
     plt.plot(scope, np.array([rebalance(data, target, args.cash) for target in scope]))
     plt.show()
 
-def plot_by_bound(data):
-    scope = np.linspace(0.1, 0.5, 50)
-    plt.plot(scope, np.array([rebalance(data, args.target, args.cash, bound) for bound in scope]))
+def plot_by_bound(data: pd.DataFrame, from_bound: float, to_bound: float):
+    scope = np.linspace(from_bound, to_bound, 25)
+    plt.plot(scope, np.array([rebalance(data, args.target, args.cash, (bound, bound)) for bound in scope]))
     plt.show()
 
 def main():
@@ -116,7 +143,7 @@ def main():
     if args.plot_by_target:
         plot_by_target(data)
     elif args.plot_by_bound:
-        plot_by_bound(data)
+        plot_by_bound(data, args.plot_by_bound[0], args.plot_by_bound[1])
     else:
         if args.plot:
             out = rebalance_values(data, args.target, args.cash, args.bound)
