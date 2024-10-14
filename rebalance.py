@@ -53,7 +53,7 @@ def rebalance_values(data: pd.DataFrame,
     price = data.iloc[0].Close
     stock = math.floor((1.0 - target) * initial_cash / price)
     cash = initial_cash - stock * price
-    value = [(data.index[0], initial_cash)]
+    value = [(data.index[0], 0, initial_cash)]
     def display(level=1, prefix=''):
         verbose(level, f"{prefix}${cash + stock * price:<9,.2f}: {stock} shares @ ${price:.2f} and ${cash:.2f} {100.0 * cash / (cash + stock * price):.2f}%")
     display(prefix="Start => ")
@@ -76,18 +76,19 @@ def rebalance_values(data: pd.DataFrame,
                 stock += buy
                 cash -= buy * price
                 display(2, f"{ts} BOUGHT {buy:3d} => ")
-        value.append((ts, cash + stock * price))
+        value.append((ts, stock, cash + stock * price))
     display(prefix="Finish => ")
-    return pd.Series(name = 'Total', 
-                     data = [v[1] for v in value],
-                     index = [v[0] for v in value])
+    return pd.DataFrame(
+        { 'Position': [v[1] for v in value], 'Total': [v[2] for v in value] },
+        index = [v[0] for v in value],
+    )
 
 def rebalance(data: pd.DataFrame, 
             target: float, 
             initial_cash: float, 
             bound: float=.25):
     values = rebalance_values(data, target, initial_cash, bound)
-    return values.iloc[-1]
+    return values.iloc[-1].Total
 
 def plot_by_target(data):
     scope = np.linspace(0, 1.0, 50)
@@ -118,9 +119,16 @@ def main():
         plot_by_bound(data)
     else:
         if args.plot:
-            series = rebalance_values(data, args.target, args.cash, args.bound)
-            value = series.iloc[-1]
-            plt.plot(series.index, series.values)
+            out = rebalance_values(data, args.target, args.cash, args.bound)
+            value = out.iloc[-1].Total
+            fig, ax1 = plt.subplots()
+            ax1.set_xlabel('time')
+            ax1.set_ylabel('Position', color='tab:red')
+            ax1.plot(out.index, out.Position, color='tab:red')
+            ax2 = ax1.twinx()
+            ax2.set_ylabel('Total Value', color='tab:blue')
+            ax2.plot(out.index, out.Total, color='tab:blue')
+            fig.tight_layout()
             plt.show()
         else:
             value = rebalance(data, args.target, args.cash, args.bound)
