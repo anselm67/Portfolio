@@ -30,6 +30,8 @@ parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
                     dest='till_datetime',
                     help='Restrict analysis to data earlier than this date (YYYY-MM-DD)')
 # Executable commands from command line. None passed? We'll just run rebalance.
+parser.add_argument('--plot', action='store_true', default=False,
+                    help='Plot portfolio values by dates.')
 parser.add_argument('--plot-by-target', action='store_true', default=False,
                     help='Plot gains by varying target cash allocation ratios from 0 to 1.')
 parser.add_argument('--plot-by-bound', action='store_true', default=False,
@@ -44,14 +46,14 @@ def verbose(level: int, msg: str):
 def exit(msg: str):
     sys.exit(msg)
 
-def rebalance(data: pd.DataFrame, 
-            target: float, 
-            initial_cash: float, 
-            bound: float=.25):
+def rebalance_values(data: pd.DataFrame, 
+                     target: float, 
+                     initial_cash: float, 
+                     bound: float=.25):
     price = data.iloc[0].Close
     stock = math.floor((1.0 - target) * initial_cash / price)
     cash = initial_cash - stock * price
-
+    value = [(data.index[0], initial_cash)]
     def display(level=1, prefix=''):
         verbose(level, f"{prefix}${cash + stock * price:<9,.2f}: {stock} shares @ ${price:.2f} and ${cash:.2f} {100.0 * cash / (cash + stock * price):.2f}%")
     display(prefix="Start => ")
@@ -74,8 +76,18 @@ def rebalance(data: pd.DataFrame,
                 stock += buy
                 cash -= buy * price
                 display(2, f"{ts} BOUGHT {buy:3d} => ")
+        value.append((ts, cash + stock * price))
     display(prefix="Finish => ")
-    return cash + stock * price
+    return pd.Series(name = 'Total', 
+                     data = [v[1] for v in value],
+                     index = [v[0] for v in value])
+
+def rebalance(data: pd.DataFrame, 
+            target: float, 
+            initial_cash: float, 
+            bound: float=.25):
+    values = rebalance_values(data, target, initial_cash, bound)
+    return values.iloc[-1]
 
 def plot_by_target(data):
     scope = np.linspace(0, 1.0, 50)
@@ -105,7 +117,13 @@ def main():
     elif args.plot_by_bound:
         plot_by_bound(data)
     else:
-        value = rebalance(data, args.target, args.cash, args.bound)
+        if args.plot:
+            series = rebalance_values(data, args.target, args.cash, args.bound)
+            value = series.iloc[-1]
+            plt.plot(series.index, series.values)
+            plt.show()
+        else:
+            value = rebalance(data, args.target, args.cash, args.bound)
         gains = value - args.cash
         print(f"${args.cash:,.2f} => ${value:,.2f} {'Up' if gains > 0 else 'Down'} ${gains:,.2f} or {100.0 * (value - args.cash) / args.cash:.2f}%")
 
