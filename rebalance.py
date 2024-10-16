@@ -73,18 +73,30 @@ def verbose(level: int, msg: str):
 def exit(msg: str):
     sys.exit(msg)
 
-def rebalance_values(data: pd.DataFrame, 
-                     target: float, 
-                     initial_cash: float, 
-                     bound: tuple[float, float]=(0.25, .25)):
+def yearly_returns(data: pd.DataFrame, start_value: float, end_value: float):
+    days = (data.index[-1] - data.index[0]).days
+    gain = 1.0 + (end_value - start_value) / start_value
+    per_day = math.pow(gain, 1 / days)
+    return 100.0 * (math.pow(per_day, 365) - 1.0) if abs(per_day) > 0 else 0
+
+def rebalance(data: pd.DataFrame, 
+              target: float, 
+              initial_cash: float, 
+              bound: tuple[float, float]=(0.25, .25)):
     price = data.iloc[0].Close
     stock = math.floor((1.0 - target) * initial_cash / price)
     cash = initial_cash - stock * price
-    value = [(data.index[0], 0, initial_cash, initial_cash)]
+    class State:
+        def __init__(self):
+            self.position = [ stock ]
+            self.cash = [ cash ]
+            self.value = [ stock * price + cash ]
+            self.index = [ data.index[0] ]
+    state = State()
     def display(level=1, prefix=''):
         verbose(level, f"{prefix}${cash + stock * price:<9,.2f}: {stock} shares @ ${price:.2f} and ${cash:.2f} {100.0 * cash / (cash + stock * price):.2f}%")
     display(prefix=f"{data.index[0].strftime('%Y-%m-%d')} => ")
-    for ts, row in data.shift(-1).iterrows():
+    for ts, row in data[1:].iterrows():
         if np.isnan(row.Close):
             break
         price = row.Close
@@ -101,38 +113,33 @@ def rebalance_values(data: pd.DataFrame,
             buy = math.floor((cash - target_cash) / price)
             if buy > 0:
                 stock += buy
-                cash -= buy * price
+                cash -= buy * price 
                 display(2, f"{ts} BOUGHT {buy:3d} => ")
-        value.append((ts, stock, cash + stock * price, cash))
+        state.position.append(stock)
+        state.cash.append(cash)
+        state.value.append(cash + stock * price)
+        state.index.append(ts)
     display(prefix=f"\t{data.index[-1].strftime('%Y-%m-%d')} => ")
-    return pd.DataFrame({ 
-        'Position': [v[1] for v in value], 
-        'Total': [v[2] for v in value],
-        'Cash': [v[3] for v in value] },
-        index = [v[0] for v in value],
-    )
-
-def rebalance(data: pd.DataFrame, 
-            target: float, 
-            initial_cash: float, 
-            bound: tuple[float, float]=(0.25, 0.25)):
-    values = rebalance_values(data, target, initial_cash, bound)
-    return values.iloc[-1].Total
-
-def yearly_returns(data: pd.DataFrame, start_value: float, end_value: float):
-    days = (data.index[-1] - data.index[0]).days
-    gain = (end_value - start_value) / start_value
-    per_day = math.pow(gain, 1 / days)
-    return 100.0 * (math.pow(per_day, 365) - 1.0) if abs(per_day) > 0 else 0
+    return data.copy().join([
+        pd.Series(state.position, name='Position', index=state.index), 
+        pd.Series(state.cash, name='Cash', index=state.index), 
+        pd.Series(state.value, name='Value', index=state.index)
+    ])
 
 def plot_by_target(data):
+    def value(target):
+        out = rebalance(data, target, args.cash)
+        return yearly_returns(data, args.cash, out.iloc[-1].Value)
     scope = np.linspace(0, 1.0, 50)
-    plt.plot(scope, np.array([yearly_returns(data, args.cash, rebalance(data, target, args.cash)) for target in scope]))
+    plt.plot(scope, np.array([value(target) for target in scope]))
     plt.show()
 
 def plot_by_bound(data: pd.DataFrame, from_bound: float, to_bound: float):
+    def value(bound):
+        out = rebalance(data, args.target, args.cash, (bound, bound))
+        return yearly_returns(data, args.cash, out.iloc[-1].Value)
     scope = np.linspace(from_bound, to_bound, 25)
-    plt.plot(scope, np.array([yearly_returns(data, args.cash, rebalance(data, args.target, args.cash, (bound, bound))) for bound in scope]))
+    plt.plot(scope, np.array([value(bound) for bound in scope]))
     plt.show()
 
 def plot_portfolio(out: pd.DataFrame):
@@ -142,7 +149,7 @@ def plot_portfolio(out: pd.DataFrame):
     ax1.plot(out.index, out.Position, color='tab:red')
     ax2 = ax1.twinx()
     ax2.set_ylabel('Total Value', color='tab:blue')
-    ax2.plot(out.index, out.Total, color='tab:blue')
+    ax2.plot(out.index, out.Value, color='tab:blue')
     ax2.plot(out.index, out.Cash, color='tab:green')
     fig.tight_layout()
     plt.show()
@@ -165,21 +172,15 @@ def main():
     elif args.plot_by_bound:
         plot_by_bound(data, args.plot_by_bound[0], args.plot_by_bound[1])
     else:
-        out = None
-        if args.plot:
-            out = rebalance_values(data, args.target, args.cash, args.bound)
-            value = out.iloc[-1].Total
-        else:
-            value = rebalance(data, args.target, args.cash, args.bound)
+        out = rebalance(data, args.target, args.cash, args.bound)
+        value = out.iloc[-1].Value
         gains = value - args.cash
         print(f"${args.cash:,.2f} => ${value:,.2f} " \
                 f"{'Up' if gains > 0 else 'Down'} ${gains:,.2f} " \
                 f"or {100.0 * (value - args.cash) / args.cash:.2f}% " \
                 f"yearly {yearly_returns(data, args.cash, value):.2f}%")
-        if out is not None:
+        if args.plot:
             plot_portfolio(out)
-
-        
 
 if __name__ == "__main__":
     main()
