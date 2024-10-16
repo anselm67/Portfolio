@@ -40,6 +40,12 @@ parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
 parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
                     dest='till_datetime',
                     help='Restrict analysis to data earlier than this date (YYYY-MM-DD)')
+parser.add_argument('--dividends', action='store_true', default=False,
+                    help='Additionally plot dividends.')
+parser.add_argument('--volume', action='store_true', default=False,
+                    help='Additionally plot volume.')
+parser.add_argument('--average', type=int, default=0,
+                    help='Additionally plot N-days average.')
 
 args = parser.parse_args()
 
@@ -51,8 +57,25 @@ def exit(msg: str):
     sys.exit(msg)
 
 def plot(data: pd.DataFrame):
-    plt.plot(data.index, data.Close)
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel('time')
+    ax1.set_ylabel('Value', color='tab:red')
+    ax1.plot(data.index, data.Close, color='tab:red')
+    if args.dividends:
+        ax2 = ax1.twinx()
+        ax2.set_ylabel('Dividends', color='tab:blue')
+        ax2.plot(data.index, data.Dividends, color='tab:blue')
+    elif args.volume:
+        ax2 = ax1.twinx()
+        ax2.set_ylabel('Dividends', color='tab:blue')
+        ax2.plot(data.index, data.Volume, color='tab:blue')
+    elif args.average > 0:
+        ax2 = ax1.twinx()
+        ax2.set_ylabel('Dividends', color='tab:blue')
+        ax2.plot(data.index, data.Close.rolling(window=args.average).mean(), color='tab:blue')
+    fig.tight_layout()
     plt.show()
+
 
 def main():
     # Fetch and cut the data according to the command line.
