@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 import sys
 import datetime
+import re
 
 def parse_range(arg: str, min_value = 0.0, max_value = 1.0, ordered=True):
     try:
@@ -26,6 +27,14 @@ def parse_range(arg: str, min_value = 0.0, max_value = 1.0, ordered=True):
         print(ex)
         raise argparse.ArgumentTypeError(f"Invalid range {arg}, expect 'lower:upper'")
 
+def parse_period(arg: str):
+    m = re.match(r"([0-9]+)([a-zA-z]*)", arg)
+    if m is None:
+        raise argparse.ArgumentTypeError(f"Invalid period {arg}, expecting xxxFFF where FFF is \
+        the period name (such as W for week) and xxx is a count, e.g. 52W")
+    else:
+        return int(m[1]), "D" if m[2] == "" else m[2]
+
 parser = argparse.ArgumentParser(
     prog='rebalance.py',
     description="Explores a rebalancing strategy."
@@ -44,8 +53,8 @@ parser.add_argument('--dividends', action='store_true', default=False,
                     help='Additionally plot dividends.')
 parser.add_argument('--volume', action='store_true', default=False,
                     help='Additionally plot volume.')
-parser.add_argument('--average', type=int, default=0,
-                    help='Additionally plot N-days average.')
+parser.add_argument('--average', type=parse_period, default=None,
+                    help='Additionally plot PERIOD average.')
 
 args = parser.parse_args()
 
@@ -59,20 +68,28 @@ def exit(msg: str):
 def plot(data: pd.DataFrame):
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('time')
-    ax1.set_ylabel('Value', color='tab:red')
-    ax1.plot(data.index, data.Close, color='tab:red')
+    ax1.set_ylabel('Value', color='tab:blue')
+    ax1.plot(data.index, data.Close, color='tab:blue')
     if args.dividends:
         ax2 = ax1.twinx()
-        ax2.set_ylabel('Dividends', color='tab:blue')
-        ax2.plot(data.index, data.Dividends, color='tab:blue')
+        ax2.set_ylabel('Dividends', color='tab:purple')
+        ax2.plot(data.index, data.Dividends, color='tab:purple')
     elif args.volume:
         ax2 = ax1.twinx()
-        ax2.set_ylabel('Dividends', color='tab:blue')
-        ax2.plot(data.index, data.Volume, color='tab:blue')
-    elif args.average > 0:
-        ax2 = ax1.twinx()
-        ax2.set_ylabel('Dividends', color='tab:blue')
-        ax2.plot(data.index, data.Close.rolling(window=args.average).mean(), color='tab:blue')
+        ax2.set_ylabel('Volume', color='tab:purple')
+        ax2.plot(data.index, data.Volume, color='tab:purple')
+    if args.average:
+        print(args.average)
+        roll = data.Close.resample(args.average[1]).mean().dropna().rolling(window=args.average[0])
+        avg = roll.mean()
+        std = roll.std()
+        ax1.plot(avg.index, avg, color='tab:purple')
+#        buy = (data.Close <= avg - 2 * std).astype(int)
+#        ax1.bar(buy.index, buy, color='tab:red')
+#        sell = (data.Close >= avg + 2 * std).astype(int)
+#        ax1.bar(sell.index, sell, color='tab:green')
+#        ax1.fill_between(avg.index, roll.min(), roll.max(), alpha=0.2, color='tab:blue')
+        ax1.fill_between(avg.index, avg + 2 * std, avg - 2 * std, alpha=0.2, color='tab:purple')
     fig.tight_layout()
     plt.show()
 
