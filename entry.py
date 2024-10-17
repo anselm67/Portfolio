@@ -67,8 +67,8 @@ def yearly_returns(data: pd.DataFrame, start_value: float, end_value: float):
 # Enters the market with initial_cash.
 def enter(data: pd.DataFrame, 
           initial_cash: float, 
-          count: int =args.count,
-          every: int =args.every):
+          count: int = args.count,
+          every: int = args.every):
     amount = initial_cash / count
     cash = initial_cash
     stock = 0
@@ -83,6 +83,50 @@ def enter(data: pd.DataFrame,
             break
     # (value, position, cash)
     return stock * data.iloc[-1].Close, stock, cash
+
+def enter2(data: pd.DataFrame, 
+            initial_cash: float,
+            freq = 'ME', count = 12):
+    # Enter the market over a year, buy every week
+    final_target = (1 - 0.01)
+    target_step = final_target / count
+    out = data.copy()
+    out['Rebalance'] = False
+    out.loc[out.asfreq(freq).dropna().index, 'Rebalance'] = True
+    
+    # Setup initial values
+    price = out.iloc[0].Close
+    target = final_target / count
+    position = math.floor(target * initial_cash / price)
+    cash = initial_cash - position * price
+    count -= 1
+    class State:
+        def __init__(self):
+            self.position = [ position ]
+            self.cash = [ cash ]
+            self.value = [ position * price + cash ]
+            self.index = [ data.index[0] ]
+    state = State()
+
+    for ts, row in out[1:].iterrows():
+        if row.Rebalance and count > 0:
+            value = cash + position * row.Close
+            target += target_step
+            buy = math.floor((target * value) / row.Close) - position
+            if buy > 0:
+                cash -= row.Close * buy
+                position += buy
+                verbose(level=1, msg=f"[{count}] {ts} BUY {buy} => ${cash:,.2f} {position}/${position * row.Close:,.2f} ${cash + position * row.Close:,.2f}")
+            count -= 1
+        state.position.append(position)
+        state.cash.append(cash)
+        state.value.append(position * row.Close + cash)
+        state.index.append(ts)
+    return data.copy().join([
+        pd.Series(state.position, name='Position', index=state.index), 
+        pd.Series(state.cash, name='Cash', index=state.index), 
+        pd.Series(state.value, name='Value', index=state.index)
+    ])
 
 def plot_by_every(data: pd.DataFrame):
     scope = range(1, 10)
@@ -107,9 +151,11 @@ def main():
         exit(f"No data available for {args.symbol}, check your spelling.")
     # Do as requested.
     verbose(1, f"Using {args.symbol} data from {data.index[0]} till {data.index[-1]}")
-    (value, position, cash) = enter(data, args.cash)
+    (value, position, cash) = enter(data, args.cash, count = 12, every = 30)
     print(f"Bought {position} shares. ${cash:.2f} left => ${value:,.2f}")
-    plot_by_every(data)
+#    plot_by_every(data)
+    out = enter2(data, args.cash)
+    print(out.tail(1))
 
 if __name__ == "__main__":
     main()
