@@ -73,7 +73,7 @@ def verbose(level: int, msg: str):
 def exit(msg: str):
     sys.exit(msg)
 
-def yearly_returns(data: pd.DataFrame, start_value: float, end_value: float):
+def annual_returns(data: pd.DataFrame, start_value: float, end_value: float):
     days = (data.index[-1] - data.index[0]).days
     gain = 1.0 + (end_value - start_value) / start_value
     per_day = math.pow(gain, 1 / days)
@@ -129,7 +129,7 @@ def rebalance(data: pd.DataFrame,
 def plot_by_target(data):
     def value(target):
         out = rebalance(data, target, args.cash)
-        return yearly_returns(data, args.cash, out.iloc[-1].Value)
+        return annual_returns(data, args.cash, out.iloc[-1].Value)
     scope = np.linspace(0, 1.0, 50)
     plt.plot(scope, np.array([value(target) for target in scope]))
     plt.show()
@@ -137,7 +137,7 @@ def plot_by_target(data):
 def plot_by_bound(data: pd.DataFrame, from_bound: float, to_bound: float):
     def value(bound):
         out = rebalance(data, args.target, args.cash, (bound, bound))
-        return yearly_returns(data, args.cash, out.iloc[-1].Value)
+        return annual_returns(data, args.cash, out.iloc[-1].Value)
     scope = np.linspace(from_bound, to_bound, 25)
     plt.plot(scope, np.array([value(bound) for bound in scope]))
     plt.show()
@@ -178,7 +178,7 @@ def main():
         print(f"${args.cash:,.2f} => ${value:,.2f} " \
                 f"{'Up' if gains > 0 else 'Down'} ${gains:,.2f} " \
                 f"or {100.0 * (value - args.cash) / args.cash:.2f}% " \
-                f"yearly {yearly_returns(data, args.cash, value):.2f}%")
+                f"yearly {annual_returns(data, args.cash, value):.2f}%")
         if args.plot:
             plot_portfolio(out)
 
