@@ -42,8 +42,8 @@ parser.add_argument('--count', type=int, default=12,
                     help='Number of purchases to make.')
 parser.add_argument('--target', type=int, default=0.2,
                     help='Target cash allocation by end of purchase period.')
-parser.add_argument('--freq', default='ME',
-                    help='Frequency of purchases, e.g. "ME", "W" ...')
+parser.add_argument('--freq', default='W-MON',
+                    help='Frequency of purchases, e.g. "ME", "W-MON" ...')
 parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
                     dest='from_datetime',
                     help='Restrict analysis to data later than this date (YYYY-MM-DD)')
@@ -52,8 +52,6 @@ parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
                     help='Restrict analysis to data earlier than this date (YYYY-MM-DD)')
 
 args = parser.parse_args()
-args.freq = 'W-MON'
-args.count = 52
 
 def verbose(level: int, msg: str):
     if args.verbose >= level:
@@ -71,7 +69,21 @@ def annual_returns(data: pd.DataFrame, start_value: float, end_value: float):
 # Enters the market with initial_cash.
 def enter(data: pd.DataFrame, 
           initial_cash: float, target: float,
-          freq: str = args.freq, count: int = args.count):
+          freq: str = args.freq, count: int = args.count) -> pd.DataFrame:
+    """Enters the market through count purchases of stock at given frequency.
+
+    Purchases (1 - target_ * inital_cash) / count of stock, count times at the given frequency.
+    
+    Args:
+        data (pd.DataFrame): Stock ticker as obtained from yfinance.
+        initial_cash (float): Initial cash position.
+        target (float): Target cash allocation to put aside before entering the market, this will be left unchanged in the cash position.
+        freq (str, optional): Frequency of purchases . Defaults to args.freq.
+        count (int, optional): Amount of times to make purchase. Defaults to args.count.
+
+    Returns:
+        pd.DataFrame: The input DataFrame augmented with Cash, Position and Value columns.
+    """
     # Enter the market over a year, buy every week
     cash_reserve = target * initial_cash
     initial_cash -= cash_reserve

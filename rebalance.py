@@ -73,7 +73,7 @@ def verbose(level: int, msg: str):
 def exit(msg: str):
     sys.exit(msg)
 
-def annual_returns(data: pd.DataFrame, start_value: float, end_value: float):
+def annual_returns(data: pd.DataFrame, start_value: float, end_value: float) -> float:
     days = (data.index[-1] - data.index[0]).days
     gain = 1.0 + (end_value - start_value) / start_value
     per_day = math.pow(gain, 1 / days)
@@ -82,7 +82,21 @@ def annual_returns(data: pd.DataFrame, start_value: float, end_value: float):
 def rebalance(data: pd.DataFrame, 
               target: float, 
               initial_cash: float, 
-              bound: tuple[float, float]=(0.25, .25)):
+              bound: tuple[float, float]=(0.25, .25)) -> pd.DataFrame:
+    """Rebalances a portfolio to achieve the given cash target allocation.
+
+    Args:
+        data (pd.DataFrame): The ticker's history as obtained from yfinance
+        target (float): Target cash allocatioon between 0.0 and 1.0
+        initial_cash (float): Initial cash position
+        bound (tuple[float, float], optional): Sell and (resp.) buy bounds. 
+            Sell is trigerred when the cash position is below (target - sell) * cash. 
+            Resp. purchase is triggered when the cash position is above (target + buy) * cash
+            Defaults to (0.25, .25).
+
+    Returns:
+        pd.DataFrame: The inputp frame with Cash, Value and Position columns added.
+    """
     price = data.iloc[0].Close
     stock = math.floor((1.0 - target) * initial_cash / price)
     cash = initial_cash - stock * price
