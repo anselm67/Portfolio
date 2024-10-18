@@ -100,7 +100,7 @@ def enter(data: pd.DataFrame,
     class State:
         def __init__(self):
             self.position = [ position ]
-            self.cash = [ cash ]
+            self.cash = [ cash + cash_reserve ]
             self.value = [ position * price + cash ]
             self.index = [ data.index[0] ]
     state = State()
@@ -110,7 +110,10 @@ def enter(data: pd.DataFrame,
             if buy > 0:
                 position += buy
                 cash -= buy * row.Close
-                verbose(level=1, msg=f"[{count}] {ts} BUY {buy} => ${cash:,.2f} {position}/${position * row.Close:,.2f} ${cash + position * row.Close:,.2f}")
+                verbose(level=1, msg=f"[{count}] {ts} BUY {buy} => "
+                        f"${cash + cash_reserve:,.2f} "
+                        f"{position}/${position * row.Close:,.2f} "
+                        f"${cash + cash_reserve + position * row.Close:,.2f}")
             count -= 1
         state.position.append(position)
         state.cash.append(cash + cash_reserve)
@@ -169,11 +172,11 @@ def enter2(data: pd.DataFrame,
 
 def display(out: pd.DataFrame):
     row = out.iloc[-1]
-    print(f"{out.index[-1]} => \
-        Cash ${row.Cash:,.2f} \
-        Position {row.Position:,.2f} \
-        Value: ${row.Value:,.2f} \
-        YoY {annual_returns(out, args.cash, row.Value):.2f}%")
+    print(f"{out.index[-1]} => "
+        f"Cash ${row.Cash:,.2f} "
+        f"Position {row.Position:,.2f} "
+        f"Value: ${row.Value:,.2f} "
+        f"YoY {annual_returns(out, args.cash, row.Value):.2f}%")
 
 def main():
     # Fetch and cut the data according to the command line.
