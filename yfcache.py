@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, List
 from pathlib import Path
 import pickle
 
@@ -8,12 +8,13 @@ import pandas as pd
 class YFTicker:
     
     symbol: str
-    first_trade: int
+    first_trade: pd.Timestamp
     history: pd.DataFrame
     
     def __init__(self, ticker: yf.Ticker):
         self.symbol = ticker.ticker
-        self.first_trade = ticker.history_metadata['firstTradeDate']
+        self.first_trade = pd.to_datetime(ticker.history_metadata['firstTradeDate'], unit='s') \
+            .tz_localize(ticker.history_metadata['exchangeTimezoneName'])
         self.history = ticker.history(period='max')
         
     def __getstate__(self):
@@ -66,6 +67,13 @@ class YFCache:
             yfticker = self.__load(symbol)
         return yfticker
             
-    
+    def join(self, symbols: List[ str ], column : str = 'Close') -> pd.DataFrame:
+        tickers = [self.get_ticker(x) for x in symbols]
+        df = pd.concat({
+            t.symbol: t.history[column] for t in tickers
+        }, axis=1)
+        df.columns = symbols
+        return df
+        
         
         

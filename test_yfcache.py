@@ -11,6 +11,12 @@ class TestYFCache(unittest.TestCase):
         # Test last price.
         print(msft.last_price())
         
+    def test_join(self):
+        c = YFCache()
+        x = c.join(['MSFT', 'VTI', 'GOOG'])
+        self.assertIsNotNone(x)
+        
+        
         
         
         
