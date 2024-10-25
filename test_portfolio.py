@@ -12,27 +12,31 @@ class TestPortfolio(unittest.TestCase):
 
     def test_buy(self):
         p = Portfolio()
-        self.assertEqual(p._cash, 100000.0)
-        p.buy('vti', 10, 100.0)
-        self.assertEqual(p._cash, 99000.0)
+        self.assertEqual(p.cash, 100000.0)
+        p.set_prices({ 'vti': 100.0 })
+        p.buy('vti', 10)
+        self.assertEqual(p.cash, 99000.0)
         self.assertEqual(p.position('vti'), 10)
 
     def test_sell_none(self):
         p = Portfolio()
-        self.assertRaises(AssertionError, p.sell,'vti', 10, 100.0)
+        p.set_prices({ 'vti': 100.0 })
+        self.assertRaises(AssertionError, p.sell, 'vti', 10)
 
     def test_sell_toomany(self):
         p = Portfolio()
-        p.buy('vti', 10, 10.0)
-        self.assertRaises(AssertionError, p.sell,'vti', 11, 100.0)
+        p.set_prices({ 'vti': 100.0 })
+        p.buy('vti', 10)
+        self.assertRaises(AssertionError, p.sell,'vti', 11)
 
     def test_sell(self):
         p = Portfolio()
+        p.set_prices({ 'vti': 100.0 })
         self.assertEqual(p._cash, 100000.0)
-        p.buy('vti', 10, 100.0)
+        p.buy('vti', 10)
         self.assertEqual(p._cash, 99000.0)
         self.assertEqual(p.position('vti'), 10)
-        p.sell('vti', 10, 100.0)
+        p.sell('vti', 10)
         self.assertEqual(p._cash, 100000.0)
         
     def test_set_allocation(self):
@@ -43,7 +47,7 @@ class TestPortfolio(unittest.TestCase):
         })
         self.assertAlmostEqual(0.2, p.get_target_allocation(Portfolio.CASH_SYMBOL))
 
-    def test_rebalance(self):
+    def test_rebalance1(self):
         prices = {
             'VTI': 100.0,
             'GOOG': 20.0,
@@ -56,7 +60,7 @@ class TestPortfolio(unittest.TestCase):
         p.balance(prices)
         self.assertEqual(500, p.position('VTI'))
         self.assertEqual(1000, p.position('GOOG'))
-        self.assertAlmostEqual(30000.0, p.cash())
+        self.assertAlmostEqual(30000.0, p.cash)
         # Change allocation and rebalance.
         p.set_allocation({
             'VTI': 0.5,
@@ -64,7 +68,7 @@ class TestPortfolio(unittest.TestCase):
         p.balance(prices)
         self.assertEqual(500, p.position('VTI'))
         self.assertEqual(0, p.position('GOOG'))
-        self.assertAlmostEqual(50000.0, p.cash())
+        self.assertAlmostEqual(50000.0, p.cash)
         # And back again:
         p.set_allocation({
             'VTI': 0.5,
@@ -73,21 +77,23 @@ class TestPortfolio(unittest.TestCase):
         p.balance(prices)
         self.assertEqual(500, p.position('VTI'))
         self.assertEqual(1000, p.position('GOOG'))
-        self.assertAlmostEqual(30000.0, p.cash())
+        self.assertAlmostEqual(30000.0, p.cash)
+        
+    def test_rebalance2(self):
+        p = Portfolio()
+        p.set_allocation({ 'GOOG': 0.5 })
+        p.balance({ 'GOOG': 100.0 })
+        p.balance({ 'GOOG': 200.0 })
+        self.assertEqual(375, p.position('GOOG'))
+        print(p)
         
     def test_value1(self):
-        yfcache = YFCache()
-        p = Portfolio(yfcache = yfcache)
-        close = yfcache.get_ticker('GOOG').last_price()
-        p.buy('GOOG', 10, close)
+        p = Portfolio()
+        p.set_prices({'GOOG': 100.0})
+        p.buy('GOOG', 10)
         self.assertAlmostEqual(100000, p.value())
-        
-    def test_value2(self):
-        yfcache = YFCache()
-        p = Portfolio(yfcache = yfcache)
-        p.set_position('GOOG', 10)
-        close = yfcache.get_ticker('GOOG').last_price()
-        self.assertAlmostEqual(10 * close + 100000, p.value())
+        self.assertAlmostEqual(1000, p.get_holding('GOOG'))
+        self.assertAlmostEqual(99000, p.cash)        
 
 if __name__ == '__main__':
     unittest.main()
