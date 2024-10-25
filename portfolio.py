@@ -10,12 +10,14 @@ class Portfolio:
     _cash: float
     _alloc: Dict[str, float]
     _prices: Dict[str, float]
+    _cash_alloc: float
     
     def __init__(self, cash: float = 100000.0):
         self._cash = cash
         self._positions = { }
         self._prices = { }
-        self._alloc = { self.CASH_SYMBOL: 1.0 }
+        self._alloc = { }
+        self._cash_alloc = 1.0 
 
     @staticmethod
     def norm(symbol: str) -> str :
@@ -87,25 +89,26 @@ class Portfolio:
     
     def set_allocation(self, alloc: Dict[str, float]) -> Self:
         new_alloc = { self.norm(ticker): target for ticker, target in alloc.items() }
-        if self.CASH_SYMBOL not in new_alloc:
-            new_alloc[self.CASH_SYMBOL] = 1.0 - sum(new_alloc.values())
-        assert(math.isclose(1.0, sum(new_alloc.values())))
+        cash_alloc = 1.0 - sum(new_alloc.values())
+        assert(math.isclose(1.0, cash_alloc + sum(new_alloc.values())))
         self._alloc = new_alloc
+        self._cash_alloc = cash_alloc
         return self
         
     def get_target_allocation(self, symbol: str) -> float:
-        return self._alloc.get(self.norm(symbol), 0)  
+        if symbol == self.CASH_SYMBOL:
+            return self._cash_alloc
+        else:
+            return self._alloc.get(self.norm(symbol), 0)  
     
     def balance(self, prices: Dict[str, float]) -> Self:
         self.update_prices(prices)
-        lower_bound, upper_bound = 0.1, 0.1
+        lower_bound, upper_bound = 0.2, 0.2
         value = self._cash + sum(self.position(ticker) * prices[ticker] for ticker in self._positions)
         alloc = { ticker: 0.0 for ticker in self._positions.keys() }
         for ticker in self._alloc.keys():
             alloc[ticker] = value * self._alloc[ticker]
         for ticker, target in alloc.items():
-            if ticker == self.CASH_SYMBOL: 
-                continue
             price = prices[ticker]
             hold = price * self.position(ticker)
             if (1. - lower_bound) * target < hold < (1. + upper_bound) * target:
@@ -115,7 +118,21 @@ class Portfolio:
                 self.buy(ticker, order)
             elif order < 0:
                 self.sell(ticker, - order)
-            print(f"{"B" if order > 0 else "S"} {ticker}: {order} @ {price}")
+            print(f"{"B" if order > 0 else "S"} {ticker}: {order} @ {price:,.2f} => ${self.value():,.2f}")
+        # Handles cash diff.
+        target_cash = self._cash_alloc * value
+        extra_cash = self.cash - target_cash
+        if (1. - lower_bound) * self.cash > target_cash or target_cash > (1. + upper_bound) * self.cash:            
+            for ticker in alloc.keys():
+                alloc[ticker] = extra_cash * (self._alloc[ticker] + self._cash_alloc / len(self._alloc))
+            for ticker, target in alloc.items():
+                price = prices[ticker]
+                order = int(math.floor(target / price))
+                if order > 0:
+                    self.buy(ticker, order)
+                elif order < 0:
+                    self.sell(ticker, - order)
+                print(f"{"B" if order > 0 else "S"} {ticker}: {order} @ {price:,.2f} => ${self.value():,.2f}")            
         return self
     
     def __str__(self) -> str:
@@ -124,7 +141,7 @@ class Portfolio:
         sep = " "
         for symbol, position in self._positions.items():
             holding = self.get_holding(symbol)
-            text += f"{sep}{symbol}: {position}@${holding:,.2f}/{100.0 * holding / value:.2f}%"
+            text += f"{sep}{symbol}: ${holding:,.2f}/{position}/{100.0 * holding / value:.2f}%"
             sep = ", "
         return text + "]"
         

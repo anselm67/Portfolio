@@ -95,5 +95,13 @@ class TestPortfolio(unittest.TestCase):
         self.assertAlmostEqual(1000, p.get_holding('GOOG'))
         self.assertAlmostEqual(99000, p.cash)        
 
+    def test_rebalance_default(self):
+        p = Portfolio(cash = 10000)
+        p.set_allocation({ 'VTI': 0.8 })
+        p.balance({ 'VTI': 36.5848 })
+        print(p)
+        p.balance({ 'VTI': 27.52 })
+        print(p)
+        
 if __name__ == '__main__':
     unittest.main()
