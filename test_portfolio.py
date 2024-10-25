@@ -1,12 +1,14 @@
 import unittest
 
 from portfolio import Portfolio
+from yfcache import YFCache
 
 class TestPortfolio(unittest.TestCase):
 
     def test_default_cash(self):
         p = Portfolio()
         self.assertEqual(p._cash, 100000.0)
+        self.assertAlmostEqual(p.value(), 100000.0)
 
     def test_buy(self):
         p = Portfolio()
@@ -72,6 +74,20 @@ class TestPortfolio(unittest.TestCase):
         self.assertEqual(500, p.position('VTI'))
         self.assertEqual(1000, p.position('GOOG'))
         self.assertAlmostEqual(30000.0, p.cash())
+        
+    def test_value1(self):
+        yfcache = YFCache()
+        p = Portfolio(yfcache = yfcache)
+        close = yfcache.get_ticker('GOOG').last_price()
+        p.buy('GOOG', 10, close)
+        self.assertAlmostEqual(100000, p.value())
+        
+    def test_value2(self):
+        yfcache = YFCache()
+        p = Portfolio(yfcache = yfcache)
+        p.set_position('GOOG', 10)
+        close = yfcache.get_ticker('GOOG').last_price()
+        self.assertAlmostEqual(10 * close + 100000, p.value())
 
 if __name__ == '__main__':
     unittest.main()

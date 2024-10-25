@@ -1,4 +1,6 @@
 from typing import Dict, Self
+from yfcache import YFCache
+
 import math
 
 class Portfolio:
@@ -6,15 +8,17 @@ class Portfolio:
     
     _positions: Dict[str, int]
     _cash: float
+    _yfcache: YFCache
 
-    def __init__(self, cash: float = 100000.0):
+    def __init__(self, cash: float = 100000.0, yfcache = YFCache()):
         self._cash = cash
+        self._yfcache = yfcache
         self._positions = { }
         self.alloc = { self.CASH_SYMBOL: 1.0 }
 
     @staticmethod
     def norm(symbol: str) -> str :
-        return symbol.upper()
+        return YFCache.norm(symbol)
     
     def buy(self, symbol, quantity: int, price: float) -> int:
         symbol = Portfolio.norm(symbol)
@@ -34,6 +38,19 @@ class Portfolio:
         else:
             return self._positions[symbol]
 
+    def set_cash(self, cash: float) -> Self:
+        self._cash = cash
+        return self
+    
+    def set_position(self, symbol, quantity) -> Self:
+        self._positions[self.norm(symbol)] = quantity
+        return self
+    
+    def set_positions(self, positions: Dict[str, int]) -> Self:
+        for k, v in positions:
+            self.set_position(k, v)
+        return self
+            
     def position(self, symbol: str) -> float:
         symbol = Portfolio.norm(symbol)
         return self._positions.get(symbol, 0)
@@ -41,6 +58,11 @@ class Portfolio:
     def cash(self) -> float:
         return self._cash
     
+    def value(self) -> float:
+        def ticker_value(ticker) -> float:
+            return self.position(ticker) * self._yfcache.get_ticker(ticker).last_price()
+        return self._cash + sum(ticker_value(ticker) for ticker in self._positions.keys())
+        
     def set_allocation(self, alloc: Dict[str, float]) -> Self:
         if self.CASH_SYMBOL not in alloc:
             alloc[self.CASH_SYMBOL] = 1.0 - sum(alloc.values())
@@ -68,35 +90,4 @@ class Portfolio:
                 self.sell(ticker, - order, price)
             print(f"{"B" if order > 0 else "S"} {ticker}: {order} @ {price}")
         return self
-    
-pf = Portfolio()
-pf.set_allocation({
-    'VTI': 0.5,
-    'GOOG': 0.2
-})
-pf.balance({
-    'VTI': 100.0,
-    'GOOG': 20.0,
-})
-
-
-pf.set_allocation({
-    'VTI': 0.5,
-})
-pf.balance({
-    'VTI': 100.0,
-    'GOOG': 20.0,
-})
-
-
-pf.set_allocation({
-    'VTI': 0.5,
-    'GOOG': 0.2
-})
-pf.balance({
-    'VTI': 100.0,
-    'GOOG': 20.0,
-})
-
-    
     
