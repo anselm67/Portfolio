@@ -64,10 +64,11 @@ class Portfolio:
         return self._cash + sum(ticker_value(ticker) for ticker in self._positions.keys())
         
     def set_allocation(self, alloc: Dict[str, float]) -> Self:
-        if self.CASH_SYMBOL not in alloc:
-            alloc[self.CASH_SYMBOL] = 1.0 - sum(alloc.values())
-        assert(math.isclose(1.0, sum(alloc.values())))
-        self.alloc = { self.norm(ticker): target for ticker, target in alloc.items() }
+        new_alloc = { self.norm(ticker): target for ticker, target in alloc.items() }
+        if self.CASH_SYMBOL not in new_alloc:
+            new_alloc[self.CASH_SYMBOL] = 1.0 - sum(new_alloc.values())
+        assert(math.isclose(1.0, sum(new_alloc.values())))
+        self.alloc = new_alloc
         return self
         
     def get_target_allocation(self, symbol: str) -> float:
