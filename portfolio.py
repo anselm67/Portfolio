@@ -107,7 +107,7 @@ class Portfolio:
         value = self._cash + sum(self.position(ticker) * prices[ticker] for ticker in self._positions)
         alloc = { ticker: 0.0 for ticker in self._positions.keys() }
         for ticker in self._alloc.keys():
-            alloc[ticker] = value * self._alloc[ticker]
+            alloc[ticker] = (value * (1 + self._cash_alloc) - self.cash) * self._alloc[ticker]
         for ticker, target in alloc.items():
             price = prices[ticker]
             hold = price * self.position(ticker)
