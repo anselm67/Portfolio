@@ -1,8 +1,11 @@
-from typing import Dict, List
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownArgumentType=false
+
+from typing import Dict, List, Any
 from pathlib import Path
 import pickle
 
-import yfinance as yf
+import yfinance as yf  # type: ignore
 import pandas as pd
 
 class YFTicker:
@@ -12,19 +15,19 @@ class YFTicker:
     history: pd.DataFrame
     
     def __init__(self, ticker: yf.Ticker):
-        self.symbol = ticker.ticker
+        self.symbol = ticker.ticker # type: ignore
         self.first_trade = pd.to_datetime(ticker.history_metadata['firstTradeDate'], unit='s') \
-            .tz_localize(ticker.history_metadata['exchangeTimezoneName'])
-        self.history = ticker.history(period='max')
+            .tz_localize(ticker.history_metadata['exchangeTimezoneName']) # type: ignore
+        self.history = ticker.history(period='max') # type: ignore
         
     def __getstate__(self):
         return self.__dict__.copy()
     
-    def __setstate__(self, state):
+    def __setstate__(self, state: Any):
         self.__dict__.update(state)
         
     def last_price(self) -> float:
-        return self.history.iloc[-1].Close
+        return self.history.iloc[-1].Close # type: ignore
     
 class YFCache:
     CACHEDIR = 'cache'
@@ -36,7 +39,7 @@ class YFCache:
     def norm(symbol: str) -> str:
         return symbol.upper()
     
-    def __init__(self, directory = CACHEDIR):
+    def __init__(self, directory: str = CACHEDIR):
         self.directory = directory
         self.cache = { }
         Path(directory).mkdir(parents = True, exist_ok = True)
@@ -71,7 +74,7 @@ class YFCache:
         tickers = [self.get_ticker(x) for x in symbols]
         df = pd.concat({
             t.symbol: t.history[column] for t in tickers
-        }, axis=1)
+        }, axis=1) # type: ignore
         df.columns = symbols
         return df
         

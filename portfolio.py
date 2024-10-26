@@ -36,7 +36,7 @@ class Portfolio:
         self._prices.update(prices)
         return self
         
-    def buy(self, symbol, quantity: int) -> int:
+    def buy(self, symbol: str, quantity: int) -> int:
         symbol = Portfolio.norm(symbol)
         self._check_prices()
         self._positions[symbol] = self._positions.get(symbol, 0) + quantity
@@ -44,7 +44,7 @@ class Portfolio:
         assert(self._cash >= 0.0)
         return self._positions[symbol]
 
-    def sell(self, symbol, quantity) -> int:
+    def sell(self, symbol: str, quantity: int) -> int:
         symbol = Portfolio.norm(symbol)
         self._check_prices()
         assert(quantity <= self._positions.get(symbol, 0))
@@ -64,12 +64,12 @@ class Portfolio:
         self._cash = cash
         return self
     
-    def set_position(self, symbol, quantity) -> Self:
+    def set_position(self, symbol: str, quantity: int) -> Self:
         self._positions[self.norm(symbol)] = quantity
         return self
     
     def set_positions(self, positions: Dict[str, int]) -> Self:
-        for k, v in positions:
+        for k, v in positions.items():
             self.set_position(k, v)
         return self
             
@@ -79,7 +79,7 @@ class Portfolio:
         
     def value(self) -> float:
         self._check_prices()
-        def ticker_value(symbol) -> float:
+        def ticker_value(symbol: str) -> float:
             return self.position(symbol) * self._prices[symbol]
         return self._cash + sum(ticker_value(symbol) for symbol in self._positions.keys())
         

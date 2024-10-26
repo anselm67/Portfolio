@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
 
 import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
-import yfinance as yf
+import yfinance as yf # type: ignore
 import sys
 import datetime
 import re
 
-def parse_range(arg: str, min_value = 0.0, max_value = 1.0, ordered=True):
+def parse_range(arg: str, 
+                min_value: float = 0.0, max_value: float = 1.0, 
+                ordered: bool =True):
     try:
         lower, upper = (0, 0)
         values = arg.split(':')
@@ -89,7 +94,7 @@ def plot(data: pd.DataFrame):
 #        sell = (data.Close >= avg + 2 * std).astype(int)
 #        ax1.bar(sell.index, sell, color='tab:green')
 #        ax1.fill_between(avg.index, roll.min(), roll.max(), alpha=0.2, color='tab:blue')
-        ax1.fill_between(avg.index, avg + 2 * std, avg - 2 * std, alpha=0.2, color='tab:purple')
+        ax1.fill_between(avg.index, avg + 2 * std, avg - 2 * std, alpha=0.2, color='tab:purple') # type: ignore
     fig.tight_layout()
     plt.show()
 

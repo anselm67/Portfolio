@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+
+from typing import Tuple
 
 import argparse
 import pandas as pd
-import matplotlib.pyplot as plt
-import yfinance as yf
-import numpy as np
+import yfinance as yf # type: ignore
 import math
 import sys
 import datetime
 
-def parse_range(arg: str, min_value = 0.0, max_value = 1.0, ordered=True):
+def parse_range(arg: str, 
+                min_value: float = 0.0, max_value: float = 1.0, 
+                ordered: bool = True) -> Tuple[float, float]:
     try:
         lower, upper = (0, 0)
         values = arg.split(':')
@@ -93,8 +98,8 @@ def enter(data: pd.DataFrame,
     out.loc[out.asfreq(freq).dropna().index, 'Purchase'] = True
     
     # Setup initial values
-    price = out.iloc[0].Close
-    position = math.floor(amount_step / price)
+    price: float = out.iloc[0].Close
+    position = math.floor(amount_step / price) 
     cash = initial_cash - position * price
     count -= 1
     class State:

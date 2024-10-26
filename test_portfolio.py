@@ -1,13 +1,12 @@
 import unittest
 
 from portfolio import Portfolio
-from yfcache import YFCache
 
 class TestPortfolio(unittest.TestCase):
 
     def test_default_cash(self):
         p = Portfolio()
-        self.assertEqual(p._cash, 100000.0)
+        self.assertEqual(p.cash, 100000.0)
         self.assertAlmostEqual(p.value(), 100000.0)
 
     def test_buy(self):
@@ -32,12 +31,12 @@ class TestPortfolio(unittest.TestCase):
     def test_sell(self):
         p = Portfolio()
         p.set_prices({ 'vti': 100.0 })
-        self.assertEqual(p._cash, 100000.0)
+        self.assertEqual(p.cash, 100000.0)
         p.buy('vti', 10)
-        self.assertEqual(p._cash, 99000.0)
+        self.assertEqual(p.cash, 99000.0)
         self.assertEqual(p.position('vti'), 10)
         p.sell('vti', 10)
-        self.assertEqual(p._cash, 100000.0)
+        self.assertEqual(p.cash, 100000.0)
         
     def test_set_allocation(self):
         p = Portfolio()

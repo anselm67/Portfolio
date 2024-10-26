@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+
+from typing import Tuple
 
 import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
-import yfinance as yf
+import yfinance as yf # type: ignore
 import numpy as np
 import math
 import sys
 import datetime
 
-def parse_range(arg: str, min_value = 0.0, max_value = 1.0, ordered=True):
+def parse_range(arg: str, 
+                min_value: float = 0.0, max_value: float = 1.0, 
+                ordered: bool=True) -> Tuple[float, float]:
     try:
         lower, upper = (0, 0)
         values = arg.split(':')
@@ -107,7 +114,7 @@ def rebalance(data: pd.DataFrame,
             self.value = [ stock * price + cash ]
             self.index = [ data.index[0] ]
     state = State()
-    def display(level=1, prefix=''):
+    def display(level: int=1, prefix: str=''):
         verbose(level, f"{prefix}${cash + stock * price:<9,.2f}: {stock} shares @ ${price:.2f} and ${cash:.2f} {100.0 * cash / (cash + stock * price):.2f}%")
     display(prefix=f"{data.index[0].strftime('%Y-%m-%d')} => ")
     for ts, row in data[1:].iterrows():
@@ -140,8 +147,8 @@ def rebalance(data: pd.DataFrame,
         pd.Series(state.value, name='Value', index=state.index)
     ])
 
-def plot_by_target(data):
-    def value(target):
+def plot_by_target(data: pd.DataFrame):
+    def value(target: float):
         out = rebalance(data, target, args.cash)
         return annual_returns(data, args.cash, out.iloc[-1].Value)
     scope = np.linspace(0, 1.0, 50)
@@ -149,7 +156,7 @@ def plot_by_target(data):
     plt.show()
 
 def plot_by_bound(data: pd.DataFrame, from_bound: float, to_bound: float):
-    def value(bound):
+    def value(bound: float):
         out = rebalance(data, args.target, args.cash, (bound, bound))
         return annual_returns(data, args.cash, out.iloc[-1].Value)
     scope = np.linspace(from_bound, to_bound, 25)
