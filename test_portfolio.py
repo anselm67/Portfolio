@@ -7,7 +7,7 @@ class TestPortfolio(unittest.TestCase):
     def test_default_cash(self):
         p = Portfolio()
         self.assertEqual(p.cash, 100000.0)
-        self.assertAlmostEqual(p.value(), 100000.0)
+        self.assertAlmostEqual(p.value, 100000.0)
 
     def test_buy(self):
         p = Portfolio()
@@ -40,11 +40,11 @@ class TestPortfolio(unittest.TestCase):
         
     def test_set_allocation(self):
         p = Portfolio()
-        self.assertAlmostEqual(1.0, p.get_target_allocation(p.CASH_SYMBOL))
+        self.assertAlmostEqual(1.0, p.get_cash_allocation())
         p.set_allocation({
             'VTI': 0.8
         })
-        self.assertAlmostEqual(0.2, p.get_target_allocation(Portfolio.CASH_SYMBOL))
+        self.assertAlmostEqual(0.2, p.get_cash_allocation())
 
     def test_rebalance1(self):
         prices = {
@@ -90,16 +90,34 @@ class TestPortfolio(unittest.TestCase):
         p = Portfolio()
         p.set_prices({'GOOG': 100.0})
         p.buy('GOOG', 10)
-        self.assertAlmostEqual(100000, p.value())
+        self.assertAlmostEqual(100000, p.value)
         self.assertAlmostEqual(1000, p.get_holding('GOOG'))
         self.assertAlmostEqual(99000, p.cash)        
 
     def test_rebalance_default(self):
         p = Portfolio(cash = 10000)
+        bounds = 0.2, 0.2
         p.set_allocation({ 'VTI': 0.8 })
-        p.balance({ 'VTI': 36.5848 })
+        for op in p.balance({ 'VTI': 36.5848 }, bounds):
+            print(op)
         print(p)
-        p.balance({ 'VTI': 27.52 })
+        for op in p.balance({ 'VTI': 27.52 }):
+            print(op)
+        # Check the cash holding:
+        lo = p.value * p.get_cash_allocation() * (1. - bounds[0])
+        hi = p.value * p.get_cash_allocation() * (1. + bounds[1])
+        self.assertTrue(
+            lo < p.cash < hi, 
+            f"Cash allocation out of bounds {lo:.2f}/{p.cash:.2f}/{hi:.2f}."
+        )
+        # Check VTI holding:
+        holding = p.get_holding('VTI')
+        lo = p.value * p.get_target_allocation('VTI') * (1. - bounds[0])
+        hi = p.value * p.get_target_allocation('VTI') * (1. + bounds[1])
+        self.assertTrue(
+            lo < holding < hi, 
+            f"VTI allocation out of bounds {lo}/{holding}/{hi}."
+        )
         print(p)
         
 if __name__ == '__main__':

@@ -17,8 +17,9 @@ p.set_allocation(ALLOC)
 prices = yfcache.join([symbol for symbol in ALLOC.keys()]).dropna()
 
 for ds, row in prices.iterrows():
-    p.balance({
+    for op in p.balance({
         symbol: row[symbol] for symbol in ALLOC.keys()
-    })
+    }):
+        print(op)
 print(p)
 
