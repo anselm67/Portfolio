@@ -3,11 +3,12 @@
 # pyright: reportUnknownVariableType=false
 
 
-from yfcache import YFCache
 from portfolio import Portfolio
+from yfcache import YFCache
 
 ALLOC = {
-    'VTI': 0.8,
+    'GOOG': 0.2,
+    'VTI': 0.6,
 }
 
 yfcache = YFCache()
@@ -15,11 +16,12 @@ yfcache = YFCache()
 p = Portfolio(cash = 10000.0)
 p.set_allocation(ALLOC)
 prices = yfcache.join([symbol for symbol in ALLOC.keys()]).dropna()
+bounds = (0.25, 0.25)
 
-for ds, row in prices.iterrows():
+for timestamp, row in prices.iterrows():
     for op in p.balance({
         symbol: row[symbol] for symbol in ALLOC.keys()
-    }):
+    }, bounds, timestamp):  # type: ignore
         print(op)
 print(p)
 

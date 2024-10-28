@@ -1,26 +1,34 @@
-from typing import Tuple, List, Dict, Self, Optional
+import math
 from enum import Enum
+from typing import Dict, List, Optional, Self, Tuple
+
+import pandas as pd
 
 from yfcache import YFCache
 
-import math
 
 class TradeOp(Enum):
     BUY = 1,
     SELL = 2
     
+    def __str__(self) -> str:
+        return self.name
+    
 class Trade:
     
     def __init__(self, 
-                 op: TradeOp, quantity: int, price: float, 
+                 op: TradeOp, symbol: str, quantity: int, price: float, 
+                 timestamp: Optional[ pd.Timestamp ] = None,
                  commission : float = 0):
         self.op = op
+        self.symbol = symbol
         self.quantity = quantity
         self.price = price
+        self.timestamp = timestamp
         self.commission = commission
         
     def __str__(self) -> str:
-        return f"{self.op} {self.quantity} @ {self.price:,.2f} = ${self.quantity * self.price:,.2f}"
+        return f"{self.timestamp} {self.op} {self.symbol} {self.quantity} @ {self.price:,.2f} = ${self.quantity * self.price:,.2f}"
         
         
 class Portfolio:
@@ -54,24 +62,28 @@ class Portfolio:
         self._prices.update(prices)
         return self
         
-    def buy(self, symbol: str, quantity: int, log: Optional[List[ Trade ]] = None) -> int:
+    def buy(self, symbol: str, quantity: int, 
+            timestamp: Optional[pd.Timestamp] = None,
+            log: Optional[List[ Trade ]] = None) -> int:
         symbol = Portfolio.norm(symbol)
         self._check_prices()
         self._positions[symbol] = self._positions.get(symbol, 0) + quantity
         self._cash -= (quantity * self._prices[symbol])
         assert(self._cash >= 0.0)
         if log is not None:
-            log.append(Trade(TradeOp.BUY, quantity, self._prices[symbol]))
+            log.append(Trade(TradeOp.BUY, symbol, quantity, self._prices[symbol], timestamp))
         return self._positions[symbol]
 
-    def sell(self, symbol: str, quantity: int, log: Optional[List[ Trade ]] = None) -> int:
+    def sell(self, symbol: str, quantity: int, 
+             timestamp: Optional[pd.Timestamp] = None,
+             log: Optional[List[ Trade ]] = None) -> int:
         symbol = Portfolio.norm(symbol)
         self._check_prices()
         assert(quantity <= self._positions.get(symbol, 0))
         self._positions[symbol] -= quantity
         self._cash += (quantity * self._prices[symbol])
         if log is not None:
-            log.append(Trade(TradeOp.SELL, quantity, self._prices[symbol]))
+            log.append(Trade(TradeOp.SELL, symbol, quantity, self._prices[symbol], timestamp))
         if self._positions[symbol] == 0:
             del self._positions[symbol]
             return 0
@@ -128,6 +140,7 @@ class Portfolio:
         self, 
         prices: Dict[str, float],
         bounds: Tuple[float, float] = (0.2, 0.2),
+        timestamp: Optional[ pd.Timestamp ] = None,
     ) -> List[ Trade ]:
         log : List [ Trade ] = [ ]
         lower_bound, upper_bound = bounds
@@ -142,9 +155,9 @@ class Portfolio:
                 continue
             order = int(math.floor(target / price) - self.position(ticker))
             if order > 0:
-                self.buy(ticker, order, log)
+                self.buy(ticker, order, timestamp, log)
             elif order < 0:
-                self.sell(ticker, - order, log)
+                self.sell(ticker, - order, timestamp, log)
         # Rebalance the cash position if needed.
         target_cash = self._cash_alloc * self.value
         extra_cash = self.cash - target_cash
@@ -155,9 +168,9 @@ class Portfolio:
                 price = prices[ticker]
                 order = int(math.floor(target / price))
                 if order > 0:
-                    self.buy(ticker, order, log)
+                    self.buy(ticker, order, timestamp, log)
                 elif order < 0:
-                    self.sell(ticker, - order, log)
+                    self.sell(ticker, - order, timestamp, log)
         return log
     
     def __str__(self) -> str:
