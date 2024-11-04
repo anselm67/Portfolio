@@ -2,12 +2,13 @@ import unittest
 
 from portfolio import Portfolio
 
+
 class TestPortfolio(unittest.TestCase):
 
     def test_default_cash(self):
         p = Portfolio()
         self.assertEqual(p.cash, 100000.0)
-        self.assertAlmostEqual(p.value, 100000.0)
+        self.assertAlmostEqual(p.value(), 100000.0)
 
     def test_buy(self):
         p = Portfolio()
@@ -90,7 +91,7 @@ class TestPortfolio(unittest.TestCase):
         p = Portfolio()
         p.set_prices({'GOOG': 100.0})
         p.buy('GOOG', 10)
-        self.assertAlmostEqual(100000, p.value)
+        self.assertAlmostEqual(100000, p.value())
         self.assertAlmostEqual(1000, p.get_holding('GOOG'))
         self.assertAlmostEqual(99000, p.cash)        
 
@@ -104,16 +105,16 @@ class TestPortfolio(unittest.TestCase):
         for op in p.balance({ 'VTI': 27.52 }):
             print(op)
         # Check the cash holding:
-        lo = p.value * p.get_cash_allocation() * (1. - bounds[0])
-        hi = p.value * p.get_cash_allocation() * (1. + bounds[1])
+        lo = p.value() * p.get_cash_allocation() * (1. - bounds[0])
+        hi = p.value() * p.get_cash_allocation() * (1. + bounds[1])
         self.assertTrue(
             lo < p.cash < hi, 
             f"Cash allocation out of bounds {lo:.2f}/{p.cash:.2f}/{hi:.2f}."
         )
         # Check VTI holding:
         holding = p.get_holding('VTI')
-        lo = p.value * p.get_target_allocation('VTI') * (1. - bounds[0])
-        hi = p.value * p.get_target_allocation('VTI') * (1. + bounds[1])
+        lo = p.value() * p.get_target_allocation('VTI') * (1. - bounds[0])
+        hi = p.value() * p.get_target_allocation('VTI') * (1. + bounds[1])
         self.assertTrue(
             lo < holding < hi, 
             f"VTI allocation out of bounds {lo}/{holding}/{hi}."

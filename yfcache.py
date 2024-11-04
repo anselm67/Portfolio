@@ -1,9 +1,10 @@
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownArgumentType=false
 
+import os
 import pickle
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import yfinance as yf  # type: ignore
@@ -64,6 +65,12 @@ class YFCache:
         self.cache[symbol] = yfticker
         return yfticker
     
+    def clear(self):
+        for file in os.listdir(self.directory):
+            path = Path(self.directory, file)
+            if os.path.isfile(path):
+                os.remove(path)
+            
     def get_ticker(self, symbol: str) -> YFTicker:
         symbol = YFCache.norm(symbol)
         yfticker = self.cache.get(symbol)
@@ -71,18 +78,26 @@ class YFCache:
             yfticker = self.__load(symbol)
         return yfticker
             
-    def join(self, symbols: List[ str ], column : str = 'Close') -> pd.DataFrame:
+    def join(self, 
+             symbols: List[ str ], 
+             column : str = 'Close',
+             from_datetime: Optional[pd.Timestamp] = None, 
+             till_datetime: Optional[pd.Timestamp] = None) -> pd.DataFrame:
         tickers = [self.get_ticker(x) for x in symbols]
         def by_day(df: pd.DataFrame) -> pd.DataFrame:
-            copy = df.copy()
-            copy.index = copy.index.date
+            copy = df.copy().tz_localize(None)
+            if from_datetime is not None:
+                copy = copy[from_datetime:]
+            if till_datetime is not None:
+                copy = copy[:till_datetime]
+            copy.index = copy.index.date # type: ignore
             return copy
-            
-        df = pd.concat({
-            t.symbol: by_day(t.history[column]) for t in tickers
-        }, axis=1) # type: ignore
+        df = pd.concat({ # type: ignore
+            t.symbol: by_day(t.history[column]) for t in tickers 
+        }, axis=1) 
         df.columns = symbols
-        return df   
+        return df # type: ignore
+    
         
         
         

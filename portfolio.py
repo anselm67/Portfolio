@@ -35,6 +35,7 @@ class Trade:
         
 class Portfolio:
     _name: str
+    _filename: Optional[ str ]
     _positions: Dict[str, int]
     _cash: float
     _alloc: Dict[str, float]
@@ -43,6 +44,7 @@ class Portfolio:
     
     def __init__(self, cash: float = 100000.0):
         self._name = 'no name'
+        self._filename = None
         self._cash = cash
         self._positions = { }
         self._prices = { }
@@ -187,22 +189,32 @@ class Portfolio:
     
     def __str__(self) -> str:
         value = self.value()
-        text = f"${value:,.2f} [Cash: ${self._cash:,.2f}/{percent(self.cash, value)}%"
-        sep = " "
+        text = f"{self.name} ${value:,.2f}\n\tCash: ${self._cash:,.2f}/{percent(self.cash, value)}%"
         for symbol, position in self._positions.items():
             holding = self.get_holding(symbol)
-            text += f"{sep}{symbol}: ${holding:,.2f}/{position}/{percent(holding, value)}%"
-            sep = ", "
-        return text + "]"
+            text += f"\n\t{symbol}\t${holding:,.2f}/{position}/{percent(holding, value)}%"
+        return text 
         
     @staticmethod
     def load(filename: str) -> "Portfolio":
         with open(filename, "r") as input:
             obj = json.load(input)
         p = Portfolio()
+        p._filename = filename
         p._name = obj.get('name', 'No Name')
         p.set_positions(obj.get('positions', {}))
         p.set_cash(obj.get('cash', 0))
         return p
         
-    
+    def save(self, filename: Optional[ str ] = None):
+        if filename is None:
+            filename = self._filename
+            if filename is None:
+                raise ValueError("No fiename for this portfolio.")
+        with open(filename, "w+") as output:
+            json.dump({
+                "name": self._name,
+                "cash": self.cash,
+                "positions": self._positions
+            }, output, indent=2)
+        

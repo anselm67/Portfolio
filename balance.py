@@ -10,8 +10,10 @@ from typing import List, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.ticker import FuncFormatter
 
 from portfolio import Portfolio
+from utils import dollars
 from yfcache import YFCache
 
 
@@ -59,7 +61,8 @@ parser.add_argument('--plot', action='store_true', default=False,
                     help='Plot portfolio values by dates.')
 parser.add_argument('portfolios', nargs='*',
                     help='Json portfolio file.')
-
+# Cache related commands
+parser.add_argument('--clear-cache', action='store_true', default=False)
 
 args = parser.parse_args()
 
@@ -83,29 +86,32 @@ ALLOC = {
 }
 
 def plot_values(pd: pd.DataFrame, names: List[ str ], values: List[ List[ float ] ]):
+    def formatter(value: float, _: float) -> str:
+        return dollars(value)
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('time')
     ax1.set_ylabel('Position', color='tab:blue')
     for n, v in zip(names, values):
         ax1.plot(pd.index, v, label=n)         # type: ignore
     fig.tight_layout()
+    ax1.yaxis.set_major_formatter(FuncFormatter(formatter))
     plt.legend(title='Portfolios')
     plt.show()
 
-def main(): 
-    yfcache = YFCache()
-
-    print(args.portfolios)
+def do_portfolios(yfcache: YFCache):
+    if len(args.portfolios) == 0:
+        return
     portfolios = [Portfolio.load(f) for f in args.portfolios]
     tickers: Set[ str ] = set()
     for p in portfolios:
         tickers.update(p.tickers())
-    print(tickers)
-    prices = yfcache.join(list(tickers)).dropna()
+    prices = yfcache.join(list(tickers), 
+                          from_datetime=args.from_datetime,
+                          till_datetime=args.till_datetime).dropna()
     if len(prices) == 0:
         raise AssertionError("Empty price list, check your tickers.")
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
-    for timestamp, row in prices.iterrows():
+    for _, row in prices.iterrows():
 #        for op in p.balance({
 #            symbol: row[symbol] for symbol in tickers
 #        }, args.bound, timestamp):  # type: ignore
@@ -119,6 +125,16 @@ def main():
         print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")
     if args.plot:
         plot_values(prices, [p.name for p in portfolios], values)
-
+    
+def main(): 
+    yfcache = YFCache()
+    
+    # Process any cache related commands:
+    if args.clear_cache:
+        verbose(1, "Clearing cache")
+        yfcache.clear()
+        
+    do_portfolios(yfcache)
+    
 if __name__ == "__main__":
     main()
