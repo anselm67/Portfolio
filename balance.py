@@ -42,8 +42,8 @@ parser = argparse.ArgumentParser(
     prog='balance.py',
     description="Explores a rebalancing strategy."
 )
-parser.add_argument('--cash', type=int, default=10000,
-                    help='Initial amount of cash to work with.')
+parser.add_argument('portfolios', nargs='*',
+                    help='Json portfolio file.')
 parser.add_argument('--bound', type=lambda s : parse_range(s, ordered=False), default=(0.25, 0.25),
                     metavar='lower:upper',
                     help="""Bounds for buy/sell trigger; Sell at (1-lower)*target and buy at (1+upper)*target.
@@ -56,13 +56,13 @@ parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
 parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
                     dest='till_datetime',
                     help='Restrict analysis to data earlier than this date (YYYY-MM-DD)')
-# Executable commands from command line. None passed? We'll just run rebalance.
 parser.add_argument('--plot', action='store_true', default=False,
                     help='Plot portfolio values by dates.')
-parser.add_argument('portfolios', nargs='*',
-                    help='Json portfolio file.')
 # Cache related commands
-parser.add_argument('--clear-cache', action='store_true', default=False)
+parser.add_argument('--clear-cache', action='store_true', default=False,
+                    help='Clears the ticker cache.')
+parser.add_argument('--update-cache', action='store_true', default=False,
+                    help='Updates the cache with the freshest stock quotes.')
 
 args = parser.parse_args()
 
@@ -133,7 +133,9 @@ def main():
     if args.clear_cache:
         verbose(1, "Clearing cache")
         yfcache.clear()
-        
+    if args.update_cache:
+        verbose(1, "Update cache...")
+        yfcache.update()
     do_portfolios(yfcache)
     
 if __name__ == "__main__":

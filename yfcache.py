@@ -71,6 +71,13 @@ class YFCache:
             if os.path.isfile(path):
                 os.remove(path)
             
+    def update(self):
+        tickers = [Path(file).stem for file in os.listdir(self.directory)]
+        for ticker in tickers:
+            os.remove(self.__path(ticker))
+        for ticker in tickers:
+            self.get_ticker(ticker)
+        
     def get_ticker(self, symbol: str) -> YFTicker:
         symbol = YFCache.norm(symbol)
         yfticker = self.cache.get(symbol)
