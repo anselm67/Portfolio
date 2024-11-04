@@ -6,7 +6,7 @@ import argparse
 import datetime
 import math
 import sys
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -57,6 +57,9 @@ parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
 # Executable commands from command line. None passed? We'll just run rebalance.
 parser.add_argument('--plot', action='store_true', default=False,
                     help='Plot portfolio values by dates.')
+parser.add_argument('portfolios', nargs='*',
+                    help='Json portfolio file.')
+
 
 args = parser.parse_args()
 
@@ -79,31 +82,43 @@ ALLOC = {
     'QQQ': 0.2,
 }
 
-def plot_values(pd: pd.DataFrame, values: List[ float ]):
+def plot_values(pd: pd.DataFrame, names: List[ str ], values: List[ List[ float ] ]):
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('time')
     ax1.set_ylabel('Position', color='tab:blue')
-    ax1.plot(pd.index, values, color='tab:blue')         # type: ignore
+    for n, v in zip(names, values):
+        ax1.plot(pd.index, v, label=n)         # type: ignore
     fig.tight_layout()
+    plt.legend(title='Portfolios')
     plt.show()
 
 def main(): 
     yfcache = YFCache()
 
-    p = Portfolio(args.cash)
-    p.set_allocation(ALLOC)
-    prices = yfcache.join([symbol for symbol in ALLOC.keys()]).dropna()
-    values: List[float] = []
+    print(args.portfolios)
+    portfolios = [Portfolio.load(f) for f in args.portfolios]
+    tickers: Set[ str ] = set()
+    for p in portfolios:
+        tickers.update(p.tickers())
+    print(tickers)
+    prices = yfcache.join(list(tickers)).dropna()
+    if len(prices) == 0:
+        raise AssertionError("Empty price list, check your tickers.")
+    values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
     for timestamp, row in prices.iterrows():
-        for op in p.balance({
-            symbol: row[symbol] for symbol in ALLOC.keys()
-        }, args.bound, timestamp):  # type: ignore
-            print(op)
-        values.append(p.value)
-    print(p)
-    print(f"Annual returns: {annual_returns(prices, args.cash, p.value):.2f}%")
+#        for op in p.balance({
+#            symbol: row[symbol] for symbol in tickers
+#        }, args.bound, timestamp):  # type: ignore
+#            print(op)
+        for p, v in zip(portfolios, values):
+            v.append(p.value({
+                symbol: row[symbol] for symbol in tickers
+            }))
+    for p, v in zip(portfolios, values):
+        print(p)
+        print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")
     if args.plot:
-        plot_values(prices, values)
+        plot_values(prices, [p.name for p in portfolios], values)
 
 if __name__ == "__main__":
     main()

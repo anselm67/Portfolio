@@ -1,9 +1,11 @@
+import json
 import math
 from enum import Enum
 from typing import Dict, List, Optional, Self, Tuple
 
 import pandas as pd
 
+from utils import percent
 from yfcache import YFCache
 
 
@@ -32,6 +34,7 @@ class Trade:
         
         
 class Portfolio:
+    _name: str
     _positions: Dict[str, int]
     _cash: float
     _alloc: Dict[str, float]
@@ -39,6 +42,7 @@ class Portfolio:
     _cash_alloc: float
     
     def __init__(self, cash: float = 100000.0):
+        self._name = 'no name'
         self._cash = cash
         self._positions = { }
         self._prices = { }
@@ -98,6 +102,10 @@ class Portfolio:
         self._cash = cash
         return self
     
+    @property
+    def name(self) -> str:
+        return self._name
+    
     def set_position(self, symbol: str, quantity: int) -> Self:
         self._positions[self.norm(symbol)] = quantity
         return self
@@ -111,8 +119,12 @@ class Portfolio:
         symbol = Portfolio.norm(symbol)
         return self._positions.get(symbol, 0)
         
-    @property
-    def value(self) -> float:
+    def tickers(self) -> List[ str ]:
+        return list(self._positions.keys())
+    
+    def value(self, prices: Optional[Dict[str, float]] = None) -> float:
+        if prices is not None:
+            self.update_prices(prices)
         self._check_prices()
         def ticker_value(symbol: str) -> float:
             return self.position(symbol) * self._prices[symbol]
@@ -147,7 +159,7 @@ class Portfolio:
         self.update_prices(prices)
         alloc = { ticker: 0.0 for ticker in self._positions.keys() }
         for ticker in self._alloc.keys():
-            alloc[ticker] = self.value * self._alloc[ticker]
+            alloc[ticker] = self.value() * self._alloc[ticker]
         for ticker, target in alloc.items():
             price = prices[ticker]
             hold = price * self.position(ticker)
@@ -159,7 +171,7 @@ class Portfolio:
             elif order < 0:
                 self.sell(ticker, - order, timestamp, log)
         # Rebalance the cash position if needed.
-        target_cash = self._cash_alloc * self.value
+        target_cash = self._cash_alloc * self.value()
         extra_cash = self.cash - target_cash
         if (1. - lower_bound) * self.cash > target_cash or target_cash > (1. + upper_bound) * self.cash:            
             for ticker in alloc.keys():
@@ -174,13 +186,23 @@ class Portfolio:
         return log
     
     def __str__(self) -> str:
-        value = self.value
-        text = f"${value:,.2f} [Cash: ${self._cash:,.2f}/{100.0 * self._cash / value:.2f}%"
+        value = self.value()
+        text = f"${value:,.2f} [Cash: ${self._cash:,.2f}/{percent(self.cash, value)}%"
         sep = " "
         for symbol, position in self._positions.items():
             holding = self.get_holding(symbol)
-            text += f"{sep}{symbol}: ${holding:,.2f}/{position}/{100.0 * holding / value:.2f}%"
+            text += f"{sep}{symbol}: ${holding:,.2f}/{position}/{percent(holding, value)}%"
             sep = ", "
         return text + "]"
+        
+    @staticmethod
+    def load(filename: str) -> "Portfolio":
+        with open(filename, "r") as input:
+            obj = json.load(input)
+        p = Portfolio()
+        p._name = obj.get('name', 'No Name')
+        p.set_positions(obj.get('positions', {}))
+        p.set_cash(obj.get('cash', 0))
+        return p
         
     

@@ -1,12 +1,13 @@
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownArgumentType=false
 
-from typing import Dict, List, Any
-from pathlib import Path
 import pickle
+from pathlib import Path
+from typing import Any, Dict, List
 
-import yfinance as yf  # type: ignore
 import pandas as pd
+import yfinance as yf  # type: ignore
+
 
 class YFTicker:
     
@@ -18,7 +19,7 @@ class YFTicker:
         self.symbol = ticker.ticker # type: ignore
         self.first_trade = pd.to_datetime(ticker.history_metadata['firstTradeDate'], unit='s') \
             .tz_localize(ticker.history_metadata['exchangeTimezoneName']) # type: ignore
-        self.history = ticker.history(period='max') # type: ignore
+        self.history = ticker.history(period='max').tz_convert('UTC') # type: ignore
         
     def __getstate__(self):
         return self.__dict__.copy()
@@ -72,11 +73,16 @@ class YFCache:
             
     def join(self, symbols: List[ str ], column : str = 'Close') -> pd.DataFrame:
         tickers = [self.get_ticker(x) for x in symbols]
+        def by_day(df: pd.DataFrame) -> pd.DataFrame:
+            copy = df.copy()
+            copy.index = copy.index.date
+            return copy
+            
         df = pd.concat({
-            t.symbol: t.history[column] for t in tickers
+            t.symbol: by_day(t.history[column]) for t in tickers
         }, axis=1) # type: ignore
         df.columns = symbols
-        return df
+        return df   
         
         
         

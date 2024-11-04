@@ -1,0 +1,12 @@
+{
+    "positions": {
+        "BIL" : 950,
+        "QQQ": 340,
+        "SCHD": 1050,
+        "VTI": 600,
+        "VXUS": 200
+    },
+    "cash": 0,
+    "name": "IRA"
+}
+
