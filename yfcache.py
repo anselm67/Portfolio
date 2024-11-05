@@ -3,6 +3,7 @@
 
 import os
 import pickle
+from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -85,6 +86,10 @@ class YFCache:
             yfticker = self.__load(symbol)
         return yfticker
             
+    def start_date(self, tickers: List[ str ]) -> pd.Timestamp:
+        date = reduce(lambda x, y: max(x, y), [self.get_ticker(t).first_trade for t in tickers])
+        return date.tz_localize(None)
+        
     def join(self, 
              symbols: List[ str ], 
              column : str = 'Close',
@@ -97,12 +102,13 @@ class YFCache:
                 copy = copy[from_datetime:]
             if till_datetime is not None:
                 copy = copy[:till_datetime]
-            copy.index = copy.index.date # type: ignore
             return copy
         df = pd.concat({ # type: ignore
             t.symbol: by_day(t.history[column]) for t in tickers 
-        }, axis=1) 
+        }, axis=1, join='outer').sort_index() 
         df.columns = symbols
+        df.ffill(inplace=True)
+        df.fillna(0, inplace=True)
         return df # type: ignore
     
         

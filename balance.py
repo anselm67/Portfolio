@@ -56,6 +56,8 @@ parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
 parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
                     dest='till_datetime',
                     help='Restrict analysis to data earlier than this date (YYYY-MM-DD)')
+parser.add_argument('--auto-start', action='store_true',default=False,
+                    help='Start analysis on the first day where all tickers exist.')
 parser.add_argument('--plot', action='store_true', default=False,
                     help='Plot portfolio values by dates.')
 # Cache related commands
@@ -64,6 +66,10 @@ parser.add_argument('--clear-cache', action='store_true', default=False,
 parser.add_argument('--update-cache', action='store_true', default=False,
                     help='Updates the cache with the freshest stock quotes.')
 
+DEBUG_ARGS = [
+    'portfolios/ira.json', 'portfolios/main.json', 
+    '--plot', '--auto-start', '-v'
+]
 args = parser.parse_args()
 
 def verbose(level: int, msg: str):
@@ -102,12 +108,19 @@ def do_portfolios(yfcache: YFCache):
     if len(args.portfolios) == 0:
         return
     portfolios = [Portfolio.load(f) for f in args.portfolios]
+    # Compute the set of unique tickers within the portfolio
     tickers: Set[ str ] = set()
     for p in portfolios:
         tickers.update(p.tickers())
+    # Compute the start date of the analysis, canbe None
+    from_datetime = args.from_datetime
+    if args.auto_start:
+        from_datetime = yfcache.start_date(list(tickers))
+        verbose(1, f"Starting analysis on {from_datetime}")
+    # Line up the prices of all requested issues.
     prices = yfcache.join(list(tickers), 
-                          from_datetime=args.from_datetime,
-                          till_datetime=args.till_datetime).dropna()
+                          from_datetime=from_datetime,
+                          till_datetime=args.till_datetime)
     if len(prices) == 0:
         raise AssertionError("Empty price list, check your tickers.")
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
@@ -122,7 +135,7 @@ def do_portfolios(yfcache: YFCache):
             }))
     for p, v in zip(portfolios, values):
         print(p)
-        print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")
+#        print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")
     if args.plot:
         plot_values(prices, [p.name for p in portfolios], values)
     
