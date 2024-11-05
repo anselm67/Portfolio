@@ -104,7 +104,7 @@ class YFCache:
                 copy = copy[:till_datetime]
             return copy
         df = pd.concat({ # type: ignore
-            t.symbol: by_day(t.history[column]) for t in tickers 
+            t.symbol: by_day(t.history[column]) for t in tickers  # type: ignore
         }, axis=1, join='outer').sort_index() 
         df.columns = symbols
         df.ffill(inplace=True)
