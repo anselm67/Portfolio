@@ -5,10 +5,12 @@ import os
 import pickle
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Mapping, Optional, Tuple, cast
 
 import pandas as pd
 import yfinance as yf  # type: ignore
+
+from utils import as_timestamp  # type: ignore
 
 
 class YFTicker:
@@ -100,6 +102,11 @@ class YFCache:
         date = reduce(lambda x, y: max(x, y), [self.get_ticker(t).first_trade for t in tickers])
         return date.tz_convert('UTC')
         
+    def reader(self, start_date: pd.Timestamp, end_date: Optional[pd.Timestamp] = None) -> 'Reader':
+        if end_date is None:
+            end_date = pd.Timestamp.now(tz='UTC')
+        return Reader(self, start_date, end_date)
+    
     def join(self, 
              symbols: List[ str ], 
              from_datetime: Optional[pd.Timestamp] = None, 
@@ -114,6 +121,90 @@ class YFCache:
         df.ffill(inplace=True)
         df.fillna(0, inplace=True)
         return df 
+    
+class Quote:
+    
+    timestamp: pd.Timestamp
+    values: Mapping[Tuple[str, str], float]
+
+    @staticmethod
+    def empty() -> 'Quote':
+        return Quote(as_timestamp('1970-01-01'), { })    
+    
+    @staticmethod
+    def from_dataframe(row: pd.DataFrame): 
+        return Quote(cast(pd.Timestamp, row.name), 
+                     cast(Mapping[Tuple[str, str], float], row))
+        
+    def __init__(self, timestamp: pd.Timestamp, data: Mapping[Tuple[str, str], float]):
+        self.timestamp = timestamp
+        self.values = data
+        
+    def Close(self, symbol: str) -> float:
+        return self.values[symbol, 'Close']
+    
+    def Dividends(self, symbol: str) -> float:
+        return self.values[symbol, 'Dividends']
+    
+class Reader:
+        
+    yfcache: YFCache
+    start_date: pd.Timestamp
+    end_date: pd.Timestamp
+    required: set[ str ]
+    dataframe: Optional[ pd.DataFrame ]
+    position: int
+    
+    def __init__(self, yfcache: YFCache, start_date: pd.Timestamp, end_date: pd.Timestamp):
+        self.yfcache = yfcache
+        self.start_date = start_date
+        self.end_date = end_date
+        self.required = set()
+        self.dirty = True
+        self.dataframe = None
+        self.position = 0
+        
+    def require(self, symbol: str):
+        if symbol in self.required:
+            return
+        # Recompose the data frame with this new symbol
+        self.required.add(symbol)
+        self.dirty = True
+        
+    def require_all(self, symbols: List [ str ]):
+        for s in symbols:
+            self.require(s)
+            
+    def update(self):
+        tickers = [self.yfcache.get_ticker(x) for x in self.required]
+        index: Any = pd.date_range(
+            start=self.start_date, 
+            end=self.end_date, 
+            freq='B', tz='UTC').date
+        df = pd.concat({ 
+            t.symbol: t.daily_history.reindex(index) for t in tickers  
+        }, axis=1, keys=self.required)
+        df.ffill(inplace=True)
+        df.fillna(0, inplace=True)
+        self.dirty = False
+        self.dataframe = df
+        return df 
+            
+    def get_dataframe(self) -> pd.DataFrame:
+        if self.dirty:
+            self.update()
+        return cast(pd.DataFrame, self.dataframe)
+    
+    def next(self) -> Generator[Quote, str, None]:
+        df = self.get_dataframe()
+        while self.position < len(df):
+            row = df.iloc[self.position]     # type: ignore
+            self.position += 1
+            yield Quote.from_dataframe(cast(pd.DataFrame ,row))
+        return None
+        
+
+        
     
         
         
