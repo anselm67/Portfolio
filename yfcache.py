@@ -103,6 +103,16 @@ class YFCache:
         return date.tz_convert('UTC')
         
     def reader(self, start_date: pd.Timestamp, end_date: Optional[pd.Timestamp] = None) -> 'Reader':
+        """Create a reader to obtain a stream of quotes.
+
+        Args:
+            start_date (pd.Timestamp): Starting date of the stream of quotes.
+            end_date (Optional[pd.Timestamp], optional): Ending date, defaults to today.
+
+        Returns:
+            Reader: A Reader instance that will provide a stream of daily Quote for the
+            given date range.
+        """
         if end_date is None:
             end_date = pd.Timestamp.now(tz='UTC')
         return Reader(self, start_date, end_date)
