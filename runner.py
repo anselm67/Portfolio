@@ -116,13 +116,14 @@ yfcache = YFCache()
 reader = yfcache.reader(start_date=as_timestamp('2000-01-01'))
 p = Portfolio(500000, name='Testing')
 
-reader.require_all([ 'VTI', 'QQQ' ])
+reader.require_all([ 'VTI', 'QQQ', 'GOOG'])
 
 actions = [
     Dividends(),
-    Buy(pd.Timestamp('2015-01-01', tz='UTC'), 'BMS', 12, 'VTI', 100),
-    ClosePosition(pd.Timestamp('2020-01-02', tz='UTC'), 'W-MON', 52, 'VTI'),
-    Balance(pd.Timestamp('2022-01-01', tz='UTC'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
+    Buy(as_timestamp('2015-01-01'), 'BMS', 12, 'VTI', 100),
+    Buy(as_timestamp('2016-01-01'), 'B', 12, 'GOOG', 100),
+    ClosePosition(as_timestamp('2020-01-02'), 'W-MON', 52, 'VTI'),
+    Balance(as_timestamp('2022-01-01'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
 ]
 
 values: List[ Tuple[pd.Timestamp, float] ] = []

@@ -98,23 +98,17 @@ class Portfolio:
         self._alloc = { }
         self._cash_alloc = 1.0 
 
-    def _check_prices(self):
-        for symbol, _ in self._positions.items():
-            assert self.quote.Close(symbol) is not None, f"{symbol} is not available in {self.quote.timestamp} quote."
-        
     def set_quote(self, quote: Quote) -> Self:
         self.quote = quote
         return self
             
     def price(self, symbol: str) -> float:
-        self._check_prices()
         return self.quote.Close(symbol)
     
 
     def buy(self, symbol: str, quantity: int, 
             timestamp: Optional[pd.Timestamp] = None,
             log: Optional[List[ LogEvent ]] = None) -> int:
-        self._check_prices()
         self._positions[symbol] = self._positions.get(symbol, 0) + quantity
         self._cash -= (quantity * self.price(symbol))
         assert(self._cash >= 0.0)
@@ -125,7 +119,6 @@ class Portfolio:
     def sell(self, symbol: str, quantity: int, 
              timestamp: Optional[pd.Timestamp] = None,
              log: Optional[List[ LogEvent ]] = None) -> int:
-        self._check_prices()
         assert 0 <= quantity <= self._positions.get(symbol, 0), f"Invalid sell quantity for {symbol} {quantity}"
         self._positions[symbol] -= quantity
         self._cash += (quantity * self.price(symbol))
@@ -177,13 +170,11 @@ class Portfolio:
     def value(self, quote: Optional[Quote] = None) -> float:
         if quote is not None:
             self.set_quote(quote)
-        self._check_prices()
         def ticker_value(symbol: str) -> float:
             return self.position(symbol) * self.price(symbol)
         return self._cash + sum(ticker_value(symbol) for symbol in self._positions.keys())
         
     def get_holding(self, symbol: str) -> float:
-        self._check_prices()
         return self.price(symbol) * self.position(symbol)
     
     def set_allocation(self, alloc: Dict[str, float]) -> Self:
