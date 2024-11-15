@@ -44,6 +44,8 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument('portfolios', nargs='*',
                     help='Json portfolio file.')
+parser.add_argument('--dividends', action='store_true', default=False,
+                    help='Deposit dividends as cash into the portfolio.')
 parser.add_argument('--bound', type=lambda s : parse_range(s, ordered=False), default=(0.25, 0.25),
                     metavar='lower:upper',
                     help="""Bounds for buy/sell trigger; Sell at (1-lower)*target and buy at (1+upper)*target.
@@ -70,7 +72,7 @@ DEBUG_ARGS = [
     'portfolios/ira.json', 'portfolios/main.json', 
     '--plot', '--auto-start', '-v'
 ]
-args = parser.parse_args(DEBUG_ARGS)
+args = parser.parse_args()
 
 def verbose(level: int, msg: str):
     if args.verbose >= level:
@@ -130,10 +132,18 @@ def do_portfolios(yfcache: YFCache):
 #            symbol: row[symbol] for symbol in tickers
 #        }, args.bound, timestamp):  # type: ignore
 #            print(op)
+        if args.dividends:
+            for p in portfolios:
+                for symbol in tickers:
+                    dividends = row[symbol, 'Dividends']
+                    if dividends > 0:
+                        p.dividends(symbol, dividends)                    
+                        
         for p, v in zip(portfolios, values):
             v.append(p.value({
                 symbol: row[symbol, 'Close'] for symbol in tickers 
             }))
+                
     for p, v in zip(portfolios, values):
         print(p)
 #        print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")

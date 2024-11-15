@@ -10,29 +10,76 @@ from yfcache import YFCache
 
 
 class TradeOp(Enum):
-    BUY = 1,
+    BUY = 1
     SELL = 2
+    DEPOSIT = 3
+    WITHDRAW = 4
     
     def __str__(self) -> str:
         return self.name
     
-class Trade:
+
+class LogEvent:
     
     def __init__(self, 
-                 op: TradeOp, symbol: str, quantity: int, price: float, 
+                 op: TradeOp,
                  timestamp: Optional[ pd.Timestamp ] = None,
                  commission : float = 0):
         self.op = op
+        self.timestamp = timestamp
+        self.commission = commission
+
+    def __str__(self) -> str:
+        return f"{self.timestamp} {self.op}"
+        
+class Buy(LogEvent):
+    
+    def __init__(self, symbol: str, quantity: int, price: float,
+                 timestamp: Optional[ pd.Timestamp ] = None,
+                 commission : float = 0):
+        super().__init__(TradeOp.BUY, timestamp, commission)
         self.symbol = symbol
         self.quantity = quantity
         self.price = price
-        self.timestamp = timestamp
-        self.commission = commission
-        
+
     def __str__(self) -> str:
         return f"{self.timestamp} {self.op} {self.symbol} {self.quantity} @ {self.price:,.2f} = ${self.quantity * self.price:,.2f}"
         
+class Sell(LogEvent):
+    
+    def __init__(self, symbol: str, quantity: int, price: float,
+                 timestamp: Optional[ pd.Timestamp ] = None,
+                 commission : float = 0):
+        super().__init__(TradeOp.SELL, timestamp, commission)
+        self.symbol = symbol
+        self.quantity = quantity
+        self.price = price
+
+    def __str__(self) -> str:
+        return f"{self.timestamp} {self.op} {self.symbol} {self.quantity} @ {self.price:,.2f} = ${self.quantity * self.price:,.2f}"
         
+class Deposit(LogEvent):
+    
+    def __init__(self, amount: float,
+                 timestamp: Optional[ pd.Timestamp ] = None,
+                 commission : float = 0):
+        super().__init__(TradeOp.DEPOSIT, timestamp, commission)
+        self.amount = amount
+        
+    def __str__(self) -> str:
+        return f"{self.timestamp} {self.op} {self.amount:,.2f}"
+        
+class Withdraw(LogEvent):
+    
+    def __init__(self, amount: float,
+                 timestamp: Optional[ pd.Timestamp ] = None,
+                 commission : float = 0):
+        super().__init__(TradeOp.WITHDRAW, timestamp, commission)
+        self.amount = amount
+        
+    def __str__(self) -> str:
+        return f"{self.timestamp} {self.op} {self.amount:,.2f}"
+
 class Portfolio:
     _name: str
     _filename: Optional[ str ]
@@ -70,26 +117,26 @@ class Portfolio:
         
     def buy(self, symbol: str, quantity: int, 
             timestamp: Optional[pd.Timestamp] = None,
-            log: Optional[List[ Trade ]] = None) -> int:
+            log: Optional[List[ LogEvent ]] = None) -> int:
         symbol = Portfolio.norm(symbol)
         self._check_prices()
         self._positions[symbol] = self._positions.get(symbol, 0) + quantity
         self._cash -= (quantity * self._prices[symbol])
         assert(self._cash >= 0.0)
         if log is not None:
-            log.append(Trade(TradeOp.BUY, symbol, quantity, self._prices[symbol], timestamp))
+            log.append(Buy(symbol, quantity, self._prices[symbol], timestamp))
         return self._positions[symbol]
 
     def sell(self, symbol: str, quantity: int, 
              timestamp: Optional[pd.Timestamp] = None,
-             log: Optional[List[ Trade ]] = None) -> int:
+             log: Optional[List[ LogEvent ]] = None) -> int:
         symbol = Portfolio.norm(symbol)
         self._check_prices()
         assert(quantity <= self._positions.get(symbol, 0))
         self._positions[symbol] -= quantity
         self._cash += (quantity * self._prices[symbol])
         if log is not None:
-            log.append(Trade(TradeOp.SELL, symbol, quantity, self._prices[symbol], timestamp))
+            log.append(Sell(symbol, quantity, self._prices[symbol], timestamp))
         if self._positions[symbol] == 0:
             del self._positions[symbol]
             return 0
@@ -100,9 +147,24 @@ class Portfolio:
     def cash(self) -> float:
         return self._cash
     
-    def set_cash(self, cash: float) -> Self:
-        self._cash = cash
-        return self
+    def deposit(self, amount: float, log: Optional[List[ LogEvent ]] = None) -> float:
+        assert(amount > 0)
+        self._cash += amount
+        if log is not None:
+            log.append(Deposit(amount))
+        return self._cash
+    
+    def withdraw(self, amount: float, log: Optional[List[ LogEvent ]] = None) -> float:
+        assert(amount > 0)
+        self._cash -= amount
+        if log is not None:
+            log.append(Withdraw(amount))
+        return self._cash
+
+    def dividends(self, symbol: str, value: float, log: Optional[List[ LogEvent ]] = None) -> float:
+        amount = self.position(symbol) * value
+        self.deposit(amount, log)
+        return amount
     
     @property
     def name(self) -> str:
@@ -155,8 +217,8 @@ class Portfolio:
         prices: Dict[str, float],
         bounds: Tuple[float, float] = (0.2, 0.2),
         timestamp: Optional[ pd.Timestamp ] = None,
-    ) -> List[ Trade ]:
-        log : List [ Trade ] = [ ]
+    ) -> List[ LogEvent ]:
+        log : List [ LogEvent ] = [ ]
         lower_bound, upper_bound = bounds
         self.update_prices(prices)
         alloc = { ticker: 0.0 for ticker in self._positions.keys() }
@@ -199,11 +261,10 @@ class Portfolio:
     def load(filename: str) -> "Portfolio":
         with open(filename, "r") as input:
             obj = json.load(input)
-        p = Portfolio()
+        p = Portfolio(obj.get('cash', 0))
         p._filename = filename
         p._name = obj.get('name', 'No Name')
         p.set_positions(obj.get('positions', {}))
-        p.set_cash(obj.get('cash', 0))
         return p
         
     def save(self, filename: Optional[ str ] = None):
