@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Self, Tuple
 import pandas as pd
 
 from utils import percent
-from yfcache import YFCache
+from yfcache import Quote
 
 
 class TradeOp(Enum):
@@ -86,7 +86,7 @@ class Portfolio:
     _positions: Dict[str, int]
     _cash: float
     _alloc: Dict[str, float]
-    _prices: Dict[str, float]
+    quote: Quote 
     _cash_alloc: float
     
     def __init__(self, cash: float = 100000.0, name: Optional[ str ] = None):
@@ -94,49 +94,43 @@ class Portfolio:
         self._filename = None
         self._cash = cash
         self._positions = { }
-        self._prices = { }
+        self.quote = Quote.empty()
         self._alloc = { }
         self._cash_alloc = 1.0 
 
-    @staticmethod
-    def norm(symbol: str) -> str :
-        return YFCache.norm(symbol)
-    
     def _check_prices(self):
         for symbol, _ in self._positions.items():
-            if self._prices.get(symbol) is None:
-                raise AssertionError(f"No price for {symbol}")
+            assert self.quote.Close(symbol) is not None, f"{symbol} is not available in {self.quote.timestamp} quote."
         
-    def set_prices(self, prices: Dict[str, float]) -> Self:
-        self._prices = { self.norm(symbol): price for symbol, price in prices.items() } 
+    def set_quote(self, quote: Quote) -> Self:
+        self.quote = quote
         return self
+            
+    def price(self, symbol: str) -> float:
+        self._check_prices()
+        return self.quote.Close(symbol)
     
-    def update_prices(self, prices: Dict[str, float]) -> Self:
-        self._prices.update(prices)
-        return self
-        
+
     def buy(self, symbol: str, quantity: int, 
             timestamp: Optional[pd.Timestamp] = None,
             log: Optional[List[ LogEvent ]] = None) -> int:
-        symbol = Portfolio.norm(symbol)
         self._check_prices()
         self._positions[symbol] = self._positions.get(symbol, 0) + quantity
-        self._cash -= (quantity * self._prices[symbol])
+        self._cash -= (quantity * self.price(symbol))
         assert(self._cash >= 0.0)
         if log is not None:
-            log.append(Buy(symbol, quantity, self._prices[symbol], timestamp))
+            log.append(Buy(symbol, quantity, self.price(symbol), timestamp))
         return self._positions[symbol]
 
     def sell(self, symbol: str, quantity: int, 
              timestamp: Optional[pd.Timestamp] = None,
              log: Optional[List[ LogEvent ]] = None) -> int:
-        symbol = Portfolio.norm(symbol)
         self._check_prices()
         assert 0 <= quantity <= self._positions.get(symbol, 0), f"Invalid sell quantity for {symbol} {quantity}"
         self._positions[symbol] -= quantity
-        self._cash += (quantity * self._prices[symbol])
+        self._cash += (quantity * self.price(symbol))
         if log is not None:
-            log.append(Sell(symbol, quantity, self._prices[symbol], timestamp))
+            log.append(Sell(symbol, quantity, self.price(symbol), timestamp))
         if self._positions[symbol] == 0:
             del self._positions[symbol]
             return 0
@@ -161,18 +155,12 @@ class Portfolio:
             log.append(Withdraw(amount))
         return self._cash
 
-    def dividends(self, symbol: str, value: float, log: Optional[List[ LogEvent ]] = None) -> float:
-        amount = self.position(symbol) * value
-        if amount > 0:
-            self.deposit(amount, log)
-        return amount
-    
     @property
     def name(self) -> str:
         return self._name
     
     def set_position(self, symbol: str, quantity: int) -> Self:
-        self._positions[self.norm(symbol)] = quantity
+        self._positions[symbol] = quantity
         return self
     
     def set_positions(self, positions: Dict[str, int]) -> Self:
@@ -181,30 +169,25 @@ class Portfolio:
         return self
             
     def position(self, symbol: str) -> int:
-        symbol = Portfolio.norm(symbol)
         return self._positions.get(symbol, 0)
         
     def tickers(self) -> List[ str ]:
         return list(self._positions.keys())
     
-    def value(self, prices: Optional[Dict[str, float]] = None) -> float:
-        if prices is not None:
-            self.update_prices(prices)
+    def value(self, quote: Optional[Quote] = None) -> float:
+        if quote is not None:
+            self.set_quote(quote)
         self._check_prices()
         def ticker_value(symbol: str) -> float:
-            return self.position(symbol) * self._prices[symbol]
+            return self.position(symbol) * self.price(symbol)
         return self._cash + sum(ticker_value(symbol) for symbol in self._positions.keys())
         
     def get_holding(self, symbol: str) -> float:
         self._check_prices()
-        return self._prices[symbol] * self.position(symbol)
-    
-    def get_price(self, symbol: str) -> float:
-        self._check_prices()
-        return self._prices[symbol]
+        return self.price(symbol) * self.position(symbol)
     
     def set_allocation(self, alloc: Dict[str, float]) -> Self:
-        new_alloc = { self.norm(ticker): target for ticker, target in alloc.items() }
+        new_alloc = { ticker: target for ticker, target in alloc.items() }
         cash_alloc = 1.0 - sum(new_alloc.values())
         assert(math.isclose(1.0, cash_alloc + sum(new_alloc.values())))
         self._alloc = new_alloc
@@ -212,33 +195,32 @@ class Portfolio:
         return self
         
     def get_target_allocation(self, symbol: str) -> float:
-        return self._alloc.get(self.norm(symbol), 0)  
+        return self._alloc.get(symbol, 0)  
     
     def get_cash_allocation(self) -> float:
         return self._cash_alloc
     
     def balance(
         self, 
-        prices: Dict[str, float],
+        quote: Quote,
         bounds: Tuple[float, float] = (0.2, 0.2),
-        timestamp: Optional[ pd.Timestamp ] = None,
     ) -> List[ LogEvent ]:
         log : List [ LogEvent ] = [ ]
         lower_bound, upper_bound = bounds
-        self.update_prices(prices)
+        self.set_quote(quote)
         alloc = { ticker: 0.0 for ticker in self._positions.keys() }
         for ticker in self._alloc.keys():
             alloc[ticker] = self.value() * self._alloc[ticker]
         for ticker, target in alloc.items():
-            price = prices[ticker]
+            price = self.price(ticker)
             hold = price * self.position(ticker)
             if (1. - lower_bound) * target < hold < (1. + upper_bound) * target:
                 continue
             order = int(math.floor(target / price) - self.position(ticker))
             if order > 0:
-                self.buy(ticker, order, timestamp, log)
+                self.buy(ticker, order, quote.timestamp, log)
             elif order < 0:
-                self.sell(ticker, - order, timestamp, log)
+                self.sell(ticker, - order, quote.timestamp, log)
         # Rebalance the cash position if needed.
         target_cash = self._cash_alloc * self.value()
         extra_cash = self.cash - target_cash
@@ -246,12 +228,12 @@ class Portfolio:
             for ticker in alloc.keys():
                 alloc[ticker] = extra_cash * (self._alloc[ticker] + self._cash_alloc / len(self._alloc))
             for ticker, target in alloc.items():
-                price = prices[ticker]
+                price = self.price(ticker)
                 order = int(math.floor(target / price))
                 if order > 0:
-                    self.buy(ticker, order, timestamp, log)
+                    self.buy(ticker, order, quote.timestamp, log)
                 elif order < 0:
-                    self.sell(ticker, - order, timestamp, log)
+                    self.sell(ticker, - order, quote.timestamp, log)
         return log
     
     def __str__(self) -> str:

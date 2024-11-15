@@ -6,7 +6,7 @@ import argparse
 import datetime
 import math
 import sys
-from typing import List, Mapping, Set, Tuple, cast
+from typing import List, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -72,7 +72,7 @@ DEBUG_ARGS = [
     'portfolios/ira.json', 'portfolios/main.json', 
     '--plot', '--auto-start', '-v', '--dividends'
 ]
-args = parser.parse_args()
+args = parser.parse_args(DEBUG_ARGS)
 
 def verbose(level: int, msg: str):
     if args.verbose >= level:
@@ -93,14 +93,16 @@ ALLOC = {
     'QQQ': 0.2,
 }
 
-def plot_values(pd: pd.DataFrame, names: List[ str ], values: List[ List[ float ] ]):
+def plot_values(chronology: List[pd.Timestamp], 
+                names: List[ str ], 
+                values: List[ List[ float ] ]):
     def formatter(value: float, _: float) -> str:
         return dollars(value)
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('time')
     ax1.set_ylabel('Position', color='tab:blue')
     for n, v in zip(names, values):
-        ax1.plot(pd.index, v, label=n)         # type: ignore
+        ax1.plot(chronology, v, label=n)         # type: ignore
     fig.tight_layout()
     ax1.yaxis.set_major_formatter(FuncFormatter(formatter))
     plt.legend(title='Portfolios')
@@ -120,36 +122,33 @@ def do_portfolios(yfcache: YFCache):
         from_datetime = yfcache.start_date(list(tickers))
         verbose(1, f"Starting analysis on {from_datetime}")
     # Line up the prices of all requested issues.
-    prices = yfcache.join(list(tickers), 
-                          from_datetime=from_datetime,
-                          till_datetime=args.till_datetime)
-    if len(prices) == 0:
-        raise AssertionError("Empty price list, check your tickers.")
+    reader = yfcache.reader(start_date=from_datetime,
+                            end_date=args.till_datetime)
+    reader.require_all(list(tickers))
+    
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
-    for timestamp, row in prices.iterrows():
-        row = cast(Mapping[Tuple[str, str], float], row)
-        timestamp = cast(pd.Timestamp, timestamp)
+    chronology: List[ pd.Timestamp ] = []
+    for quote in reader.next():
         if args.dividends:
             for p in portfolios:
                 for symbol in tickers:
-                    dividends = row[symbol, 'Dividends']
+                    dividends = quote.Dividends(symbol)
                     if dividends > 0:
-                        p.dividends(symbol, dividends)                    
+                        p.deposit(dividends)                    
                         
         for p, v in zip(portfolios, values):
 #            for op in p.balance({
 #                symbol: row[symbol, 'Close'] for symbol in tickers
 #            }, args.bound, timestamp):  
 #                print(op)
-            v.append(p.value({
-                symbol: row[symbol, 'Close'] for symbol in tickers
-            }))
-                
+            v.append(p.value(quote))
+        chronology.append(quote.timestamp)
+        
     for p, v in zip(portfolios, values):
         print(p)
 #        print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")
     if args.plot:
-        plot_values(prices, [p.name for p in portfolios], values)
+        plot_values(chronology, [p.name for p in portfolios], values)
     
 def main(): 
     yfcache = YFCache()

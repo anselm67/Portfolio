@@ -1,12 +1,13 @@
 import math
 from abc import ABC, abstractmethod
-from typing import List, Mapping, Tuple, cast
+from typing import List, Mapping, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from portfolio import Portfolio
-from yfcache import YFCache
+from utils import as_timestamp
+from yfcache import Quote, YFCache
 
 
 class Action(ABC):
@@ -30,12 +31,12 @@ class Action(ABC):
             self.count = -1
         
     @abstractmethod
-    def execute(self, timestamp: pd.Timestamp, p: Portfolio):
+    def execute(self, p: Portfolio, q: Quote):
         pass
             
-    def run(self, timestamp: pd.Timestamp, p: Portfolio): 
-        if timestamp in self.schedule and self.count != 0:
-            self.execute(timestamp, p)
+    def run(self, p: Portfolio, q: Quote): 
+        if q.timestamp in self.schedule and self.count != 0:
+            self.execute(p, q)
             if self.count > 0:
                 self.count -= 1
         return p
@@ -51,8 +52,8 @@ class Buy(Action):
         self.symbol = symbol
         self.quantity = quantity
         
-    def execute(self, timestamp: pd.Timestamp, p: Portfolio):
-        p.buy(self.symbol, self.quantity, timestamp)
+    def execute(self, p: Portfolio, q: Quote):
+        p.buy(self.symbol, self.quantity, q.timestamp)
             
 class ClosePosition(Action):
     
@@ -64,11 +65,11 @@ class ClosePosition(Action):
         assert count > 0, "The number of steps in which to close position has to be positive."
         self.symbol = symbol
         
-    def execute(self, timestamp: pd.Timestamp, p: Portfolio):
+    def execute(self, p: Portfolio, q: Quote):
         position = p.position(self.symbol)        
         p.sell(self.symbol,
                position if self.count == 1 else int(position / self.count),
-               timestamp)
+               q.timestamp)
 
 class Balance(Action):
     
@@ -79,8 +80,8 @@ class Balance(Action):
         super().__init__(start, freq, -1)
         self.alloc = alloc    
         
-    def execute(self, timestamp: pd.Timestamp, p: Portfolio):
-        print(f"{timestamp} Balance portfolio.")
+    def execute(self, p: Portfolio, q: Quote):
+        print(f"{q.timestamp} Balance portfolio.")
         # Sell any issues that isn't in our allocation.
         for t in p.tickers():
             if self.alloc.get(t) is None:
@@ -89,46 +90,50 @@ class Balance(Action):
         target_dollars = { ticker: p.value() * target for ticker, target in self.alloc.items() }
         for ticker, amount in target_dollars.items():
             diff = min(amount - p.get_holding(ticker), p.cash)
-            quantity = int(math.floor(diff / p.get_price(ticker)))
+            quantity = int(math.floor(diff / p.price(ticker)))
             if quantity > 0:
                 p.buy(ticker, quantity)
             else:
                 p.sell(ticker, - quantity)
 
+class Dividends(Action):
     
-def plot_values(pd: pd.DataFrame, values: List[ float ]):
-    plt.plot(pd.index, values)         # type: ignore
-    plt.show()
+    def __init__(self):
+        super().__init__(as_timestamp('1970-01-01'), 'B')
+        
+    def execute(self, p: Portfolio, q: Quote):
+        for ticker in p.tickers():
+            amount = q.Dividends(ticker) * p.position(ticker)
+            if amount > 0:
+                p.deposit(amount)
+        
+def plot_values(values: List[Tuple[ pd.Timestamp, float ]]):
+    x, y = zip(*values)
+    plt.plot(x, y)  #type: ignore
+    plt.show()      #type: ignore
         
 yfcache = YFCache()
+reader = yfcache.reader(start_date=as_timestamp('2000-01-01'))
 p = Portfolio(500000, name='Testing')
 
-tickers = [
-    'VTI', 'QQQ'
-]
-
-from_datetime = pd.Timestamp('2010-01-01', tz='UTC')
-history = yfcache.join(tickers, from_datetime=from_datetime)
+reader.require_all([ 'VTI', 'QQQ' ])
 
 actions = [
+    Dividends(),
     Buy(pd.Timestamp('2015-01-01', tz='UTC'), 'BMS', 12, 'VTI', 100),
     ClosePosition(pd.Timestamp('2020-01-02', tz='UTC'), 'W-MON', 52, 'VTI'),
     Balance(pd.Timestamp('2022-01-01', tz='UTC'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
 ]
 
-values: List[ float ] = []
-for timestamp, row in history.iterrows():
-    row = cast(Mapping[Tuple[str, str], float], row)
-    timestamp = cast(pd.Timestamp, timestamp)
+values: List[ Tuple[pd.Timestamp, float] ] = []
+for quote in reader.next():
     
-    value = p.value({
-        symbol: row[symbol, 'Close'] for symbol in tickers
-    })
+    value = p.value(quote)
     for a in actions:
-        a.run(timestamp, p)    
-    values.append(value)
+        a.run(p, quote)    
+    values.append((quote.timestamp, value))
     
 print(p)
-plot_values(history, values)
+plot_values(values)
 
     
