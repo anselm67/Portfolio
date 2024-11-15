@@ -70,7 +70,7 @@ parser.add_argument('--update-cache', action='store_true', default=False,
 
 DEBUG_ARGS = [
     'portfolios/ira.json', 'portfolios/main.json', 
-    '--plot', '--auto-start', '-v'
+    '--plot', '--auto-start', '-v', '--dividends'
 ]
 args = parser.parse_args()
 
@@ -126,12 +126,9 @@ def do_portfolios(yfcache: YFCache):
     if len(prices) == 0:
         raise AssertionError("Empty price list, check your tickers.")
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
-    for _, row in prices.iterrows():
+    for timestamp, row in prices.iterrows():
         row = cast(Mapping[Tuple[str, str], float], row)
-#        for op in p.balance({
-#            symbol: row[symbol] for symbol in tickers
-#        }, args.bound, timestamp):  # type: ignore
-#            print(op)
+        timestamp = cast(pd.Timestamp, timestamp)
         if args.dividends:
             for p in portfolios:
                 for symbol in tickers:
@@ -140,8 +137,12 @@ def do_portfolios(yfcache: YFCache):
                         p.dividends(symbol, dividends)                    
                         
         for p, v in zip(portfolios, values):
+#            for op in p.balance({
+#                symbol: row[symbol, 'Close'] for symbol in tickers
+#            }, args.bound, timestamp):  
+#                print(op)
             v.append(p.value({
-                symbol: row[symbol, 'Close'] for symbol in tickers 
+                symbol: row[symbol, 'Close'] for symbol in tickers
             }))
                 
     for p, v in zip(portfolios, values):
