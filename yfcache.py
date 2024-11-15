@@ -13,16 +13,26 @@ import yfinance as yf  # type: ignore
 
 class YFTicker:
     
-    symbol: str
     first_trade: pd.Timestamp
-    history: pd.DataFrame
+    history: Any
+    history_metadata: Any
     
     def __init__(self, ticker: yf.Ticker):
-        self.symbol = ticker.ticker # type: ignore
         self.first_trade = pd.to_datetime(ticker.history_metadata['firstTradeDate'], unit='s') \
-            .tz_localize(ticker.history_metadata['exchangeTimezoneName']) # type: ignore
-        self.history = ticker.history(period='max').tz_convert('UTC') # type: ignore
+            .tz_localize(ticker.history_metadata['timezone']) 
+        self.history = ticker.history(period='max').tz_convert('UTC') 
+        self.history_metadata = ticker.history_metadata
         
+    @property
+    def symbol(self):
+        return self.history_metadata['symbol']
+        
+    @property
+    def daily_history(self):
+        data = self.history.copy()
+        data.index = data.index.date
+        return data
+    
     def __getstate__(self):
         return self.__dict__.copy()
     
@@ -88,28 +98,22 @@ class YFCache:
             
     def start_date(self, tickers: List[ str ]) -> pd.Timestamp:
         date = reduce(lambda x, y: max(x, y), [self.get_ticker(t).first_trade for t in tickers])
-        return date.tz_localize(None)
+        return date.tz_convert('UTC')
         
     def join(self, 
              symbols: List[ str ], 
-             column : str = 'Close',
              from_datetime: Optional[pd.Timestamp] = None, 
              till_datetime: Optional[pd.Timestamp] = None) -> pd.DataFrame:
         tickers = [self.get_ticker(x) for x in symbols]
-        def by_day(df: pd.DataFrame) -> pd.DataFrame:
-            copy = df.copy().tz_localize(None)
-            if from_datetime is not None:
-                copy = copy[from_datetime:]
-            if till_datetime is not None:
-                copy = copy[:till_datetime]
-            return copy
-        df = pd.concat({ # type: ignore
-            t.symbol: by_day(t.history[column]) for t in tickers  # type: ignore
-        }, axis=1, join='outer').sort_index() 
-        df.columns = symbols
+        from_datetime = from_datetime or min(t.history.index.min() for t in tickers)
+        till_datetime = till_datetime or max(t.history.index.max() for t in tickers)
+        index: Any = pd.date_range(start=from_datetime, end=till_datetime, freq='B', tz='UTC').date
+        df = pd.concat({ 
+            t.symbol: t.daily_history.reindex(index) for t in tickers  
+        }, axis=1, keys=symbols)
         df.ffill(inplace=True)
         df.fillna(0, inplace=True)
-        return df # type: ignore
+        return df 
     
         
         

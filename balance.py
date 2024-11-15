@@ -6,7 +6,7 @@ import argparse
 import datetime
 import math
 import sys
-from typing import List, Set, Tuple
+from typing import List, Mapping, Set, Tuple, cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -70,7 +70,7 @@ DEBUG_ARGS = [
     'portfolios/ira.json', 'portfolios/main.json', 
     '--plot', '--auto-start', '-v'
 ]
-args = parser.parse_args()
+args = parser.parse_args(DEBUG_ARGS)
 
 def verbose(level: int, msg: str):
     if args.verbose >= level:
@@ -125,13 +125,14 @@ def do_portfolios(yfcache: YFCache):
         raise AssertionError("Empty price list, check your tickers.")
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
     for _, row in prices.iterrows():
+        row = cast(Mapping[Tuple[str, str], float], row)
 #        for op in p.balance({
 #            symbol: row[symbol] for symbol in tickers
 #        }, args.bound, timestamp):  # type: ignore
 #            print(op)
         for p, v in zip(portfolios, values):
             v.append(p.value({
-                symbol: row[symbol] for symbol in tickers
+                symbol: row[symbol, 'Close'] for symbol in tickers 
             }))
     for p, v in zip(portfolios, values):
         print(p)
