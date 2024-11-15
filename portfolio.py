@@ -89,8 +89,8 @@ class Portfolio:
     _prices: Dict[str, float]
     _cash_alloc: float
     
-    def __init__(self, cash: float = 100000.0):
-        self._name = 'no name'
+    def __init__(self, cash: float = 100000.0, name: Optional[ str ] = None):
+        self._name = name or 'no name'
         self._filename = None
         self._cash = cash
         self._positions = { }
@@ -132,7 +132,7 @@ class Portfolio:
              log: Optional[List[ LogEvent ]] = None) -> int:
         symbol = Portfolio.norm(symbol)
         self._check_prices()
-        assert(quantity <= self._positions.get(symbol, 0))
+        assert 0 <= quantity <= self._positions.get(symbol, 0), f"Invalid sell quantity for {symbol} {quantity}"
         self._positions[symbol] -= quantity
         self._cash += (quantity * self._prices[symbol])
         if log is not None:
@@ -163,7 +163,8 @@ class Portfolio:
 
     def dividends(self, symbol: str, value: float, log: Optional[List[ LogEvent ]] = None) -> float:
         amount = self.position(symbol) * value
-        self.deposit(amount, log)
+        if amount > 0:
+            self.deposit(amount, log)
         return amount
     
     @property
@@ -179,7 +180,7 @@ class Portfolio:
             self.set_position(k, v)
         return self
             
-    def position(self, symbol: str) -> float:
+    def position(self, symbol: str) -> int:
         symbol = Portfolio.norm(symbol)
         return self._positions.get(symbol, 0)
         
@@ -197,6 +198,10 @@ class Portfolio:
     def get_holding(self, symbol: str) -> float:
         self._check_prices()
         return self._prices[symbol] * self.position(symbol)
+    
+    def get_price(self, symbol: str) -> float:
+        self._check_prices()
+        return self._prices[symbol]
     
     def set_allocation(self, alloc: Dict[str, float]) -> Self:
         new_alloc = { self.norm(ticker): target for ticker, target in alloc.items() }
