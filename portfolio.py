@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import Dict, List, Optional, Self
+from typing import Callable, Dict, List, Optional, Self
 
 import pandas as pd
 
@@ -20,64 +20,93 @@ class TradeOp(Enum):
 
 class LogEvent:
     
+    op: TradeOp
+    timestamp: Optional[ pd.Timestamp ]
+    commission: float
+    memo: str
+    
     def __init__(self, 
                  op: TradeOp,
                  timestamp: Optional[ pd.Timestamp ] = None,
-                 commission : float = 0):
+                 commission : float = 0,
+                 memo: Optional [ str ] = None):
         self.op = op
         self.timestamp = timestamp
         self.commission = commission
-
-    def __str__(self) -> str:
+        self.memo = memo or ''
+        
+    def display(self) -> str:
         return f"{self.timestamp} {self.op}"
         
 class Buy(LogEvent):
     
+    symbol: str
+    quantity: int
+    price: float 
+    
     def __init__(self, symbol: str, quantity: int, price: float,
                  timestamp: Optional[ pd.Timestamp ] = None,
-                 commission : float = 0):
-        super().__init__(TradeOp.BUY, timestamp, commission)
+                 commission : float = 0,
+                 memo: Optional [ str ] = None):
+        super().__init__(TradeOp.BUY, timestamp, commission, memo)
         self.symbol = symbol
         self.quantity = quantity
         self.price = price
 
-    def __str__(self) -> str:
-        return f"{self.timestamp} {self.op} {self.symbol} {self.quantity} @ {self.price:,.2f} = ${self.quantity * self.price:,.2f}"
+    def display(self) -> str:
+        return (
+            f"{super().display()} "
+            f"{self.symbol} {self.quantity} @ {self.price:,.2f} = "
+            f"${self.quantity * self.price:,.2f} ({self.memo})"
+        )
         
 class Sell(LogEvent):
     
     def __init__(self, symbol: str, quantity: int, price: float,
                  timestamp: Optional[ pd.Timestamp ] = None,
-                 commission : float = 0):
-        super().__init__(TradeOp.SELL, timestamp, commission)
+                 commission : float = 0,
+                 memo: Optional [ str ] = None):
+        super().__init__(TradeOp.SELL, timestamp, commission, memo)
         self.symbol = symbol
         self.quantity = quantity
         self.price = price
 
-    def __str__(self) -> str:
-        return f"{self.timestamp} {self.op} {self.symbol} {self.quantity} @ {self.price:,.2f} = ${self.quantity * self.price:,.2f}"
+    def display(self) -> str:
+        return (
+            f"{super().display()} "
+            f"{self.symbol} {self.quantity} @ {self.price:,.2f} = "
+            f"${self.quantity * self.price:,.2f} ({self.memo})"
+        )
         
 class Deposit(LogEvent):
     
     def __init__(self, amount: float,
                  timestamp: Optional[ pd.Timestamp ] = None,
-                 commission : float = 0):
-        super().__init__(TradeOp.DEPOSIT, timestamp, commission)
+                 commission : float = 0,
+                 memo: Optional [ str ] = None):
+        super().__init__(TradeOp.DEPOSIT, timestamp, commission, memo)
         self.amount = amount
         
-    def __str__(self) -> str:
-        return f"{self.timestamp} {self.op} {self.amount:,.2f}"
+    def display(self) -> str:
+        return (
+            f"{super().display()} "
+            f"${self.amount:,.2f} ({self.memo})"
+        )
         
 class Withdraw(LogEvent):
     
     def __init__(self, amount: float,
                  timestamp: Optional[ pd.Timestamp ] = None,
-                 commission : float = 0):
-        super().__init__(TradeOp.WITHDRAW, timestamp, commission)
+                 commission : float = 0,
+                 memo: Optional [ str ] = None):
+        super().__init__(TradeOp.WITHDRAW, timestamp, commission, memo)
         self.amount = amount
         
-    def __str__(self) -> str:
-        return f"{self.timestamp} {self.op} {self.amount:,.2f}"
+    def display(self) -> str:
+        return (
+            f"{super().display()} "
+            "{self.amount:,.2f} ({self.memo})"
+        )
 
 class Portfolio:
     _name: str
@@ -85,6 +114,7 @@ class Portfolio:
     _positions: Dict[str, int]
     _cash: float
     quote: Quote 
+    loggers: List[ Callable[[LogEvent], None]]
     
     def __init__(self, cash: float = 100000.0, name: Optional[ str ] = None):
         self._name = name or 'no name'
@@ -94,6 +124,17 @@ class Portfolio:
         self.quote = Quote.empty()
         self._alloc = { }
         self._cash_alloc = 1.0 
+        self.loggers = []
+
+    def _log(self, evt: LogEvent):
+        for l in self.loggers:
+            l(evt)
+    
+    def add_logger(self, logger: Callable[[LogEvent], None]):
+        self.loggers.append(logger)
+        
+    def remove_logger(self, logger: Callable[[LogEvent], None]):
+        self.loggers.remove(logger)
 
     def set_quote(self, quote: Quote) -> Self:
         self.quote = quote
@@ -102,25 +143,18 @@ class Portfolio:
     def price(self, symbol: str) -> float:
         return self.quote.Close(symbol)
     
-
-    def buy(self, symbol: str, quantity: int, 
-            timestamp: Optional[pd.Timestamp] = None,
-            log: Optional[List[ LogEvent ]] = None) -> int:
+    def buy(self, symbol: str, quantity: int, memo: Optional[ str ]=None) -> int:
         self._positions[symbol] = self._positions.get(symbol, 0) + quantity
         self._cash -= (quantity * self.price(symbol))
         assert(self._cash >= 0.0)
-        if log is not None:
-            log.append(Buy(symbol, quantity, self.price(symbol), timestamp))
+        self._log(Buy(symbol, quantity, self.price(symbol), self.quote.timestamp, memo=memo))
         return self._positions[symbol]
 
-    def sell(self, symbol: str, quantity: int, 
-             timestamp: Optional[pd.Timestamp] = None,
-             log: Optional[List[ LogEvent ]] = None) -> int:
+    def sell(self, symbol: str, quantity: int, memo: Optional[ str ]=None) -> int:
         assert 0 <= quantity <= self._positions.get(symbol, 0), f"Invalid sell quantity for {symbol} {quantity}"
         self._positions[symbol] -= quantity
         self._cash += (quantity * self.price(symbol))
-        if log is not None:
-            log.append(Sell(symbol, quantity, self.price(symbol), timestamp))
+        self._log(Sell(symbol, quantity, self.price(symbol), self.quote.timestamp, memo=memo))
         if self._positions[symbol] == 0:
             del self._positions[symbol]
             return 0
@@ -131,18 +165,16 @@ class Portfolio:
     def cash(self) -> float:
         return self._cash
     
-    def deposit(self, amount: float, log: Optional[List[ LogEvent ]] = None) -> float:
+    def deposit(self, amount: float, memo: Optional[ str ]=None) -> float:
         assert(amount > 0)
         self._cash += amount
-        if log is not None:
-            log.append(Deposit(amount))
+        self._log(Deposit(amount, self.quote.timestamp, memo=memo))
         return self._cash
     
-    def withdraw(self, amount: float, log: Optional[List[ LogEvent ]] = None) -> float:
+    def withdraw(self, amount: float, memo: Optional[ str ]=None) -> float:
         assert(amount > 0)
         self._cash -= amount
-        if log is not None:
-            log.append(Withdraw(amount))
+        self._log(Withdraw(amount, self.quote.timestamp, memo=memo))
         return self._cash
 
     @property

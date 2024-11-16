@@ -53,7 +53,7 @@ class Buy(Action):
         self.quantity = quantity
         
     def execute(self, p: Portfolio, q: Quote):
-        p.buy(self.symbol, self.quantity, q.timestamp)
+        p.buy(self.symbol, self.quantity)
             
 class ClosePosition(Action):
     
@@ -68,8 +68,7 @@ class ClosePosition(Action):
     def execute(self, p: Portfolio, q: Quote):
         position = p.position(self.symbol)        
         p.sell(self.symbol,
-               position if self.count == 1 else int(position / self.count),
-               q.timestamp)
+               position if self.count == 1 else int(position / self.count))
 
 class Balance(Action):
     
@@ -95,15 +94,14 @@ class Balance(Action):
             if target > hold:
                 quantity = int(math.floor(min(target - hold, p.cash) / p.price(ticker)))
                 if quantity > 0:
-                    p.buy(ticker, quantity, q.timestamp)
+                    p.buy(ticker, quantity, memo='Rebalancing')
             else:
                 quantity = int(math.floor((hold - target) / p.price(ticker)))
                 if quantity > 0:
-                    p.sell(ticker, quantity, q.timestamp)
+                    p.sell(ticker, quantity, memo='Rebalancing')
         
         
     def execute(self, p: Portfolio, q: Quote):
-        print(f"{q.timestamp} Balance portfolio.")
         # Sell any issues that isn't in our allocation.
         for t in p.tickers():
             if self.alloc.get(t) is None:
@@ -117,7 +115,7 @@ class Balance(Action):
                 amount = extra_cash * (target + self.cash_alloc / len(self.alloc))
                 quantity = int(math.floor(amount / p.price(ticker)))
                 if quantity > 0:
-                    p.buy(ticker, quantity, q.timestamp)
+                    p.buy(ticker, quantity, memo='Cash rebalancing')
 
 
 class Dividends(Action):
@@ -127,9 +125,10 @@ class Dividends(Action):
         
     def execute(self, p: Portfolio, q: Quote):
         for ticker in p.tickers():
-            amount = q.Dividends(ticker) * p.position(ticker)
-            if amount > 0:
-                p.deposit(amount)
+            dividends = q.Dividends(ticker)
+            if dividends > 0:
+                p.deposit(dividends * p.position(ticker),
+                          memo=f"{ticker} dividends of {dividends} x {p.position(ticker)}")
         
 class Deposit(Action):
     
@@ -162,7 +161,20 @@ class Withdraw(Action):
     
     def execute(self, p: Portfolio, q: Quote):
         p.withdraw(self.amount)
-            
+         
+class CashInterest(Action):
+    
+    monthly_rate: float
+    
+    def __init__(self, yearly_rate: float):
+        super().__init__(as_timestamp('1970-01-01'), 'BMS')
+        self.monthly_rate = yearly_rate / 12
+        
+    def execute(self, p: Portfolio, q: Quote):
+        amount = self.monthly_rate * p.cash
+        p.deposit(amount, memo='Monthly cash interest rate.')
+        
+        
 def plot_values(values: List[Tuple[ pd.Timestamp, float ]]):
     x, y = zip(*values)
     plt.plot(x, y)  #type: ignore
@@ -172,11 +184,13 @@ def main():
     yfcache = YFCache()
     reader = yfcache.reader(start_date=as_timestamp('2000-01-01'))
     portfolio = Portfolio(500000, name='Testing')
-
+    portfolio.add_logger(lambda e: print(e.display()))
+    
     reader.require_all([ 'VTI', 'QQQ', 'GOOG'])
 
     actions = [
         Dividends(),
+        CashInterest(0.05),
         Buy(as_timestamp('2015-01-01'), 'BMS', 12, 'VTI', 100),
         Buy(as_timestamp('2016-01-01'), 'B', 12, 'GOOG', 100),
         ClosePosition(as_timestamp('2020-01-02'), 'W-MON', 52, 'VTI'),

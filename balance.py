@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
-from portfolio import Portfolio
+from portfolio import LogEvent, Portfolio
 from utils import dollars
 from yfcache import YFCache
 
@@ -108,6 +108,9 @@ def plot_values(chronology: List[pd.Timestamp],
     plt.legend(title='Portfolios')
     plt.show()
 
+def event_logger(evt: LogEvent):
+    print(evt.display())
+
 def do_portfolios(yfcache: YFCache):
     if len(args.portfolios) == 0:
         return
@@ -115,6 +118,7 @@ def do_portfolios(yfcache: YFCache):
     # Compute the set of unique tickers within the portfolio
     tickers: Set[ str ] = set()
     for p in portfolios:
+        p.add_logger(event_logger)
         tickers.update(p.tickers())
     # Compute the start date of the analysis, canbe None
     from_datetime = args.from_datetime
@@ -131,16 +135,13 @@ def do_portfolios(yfcache: YFCache):
     for quote in reader:
         if args.dividends:
             for p in portfolios:
-                for symbol in tickers:
+                for symbol in p.tickers():
                     dividends = quote.Dividends(symbol)
                     if dividends > 0:
-                        p.deposit(dividends)                    
+                        p.deposit(dividends * p.position(symbol),
+                                  memo=f"{symbol} dividends of {dividends} x {p.position(symbol)}")
                         
         for p, v in zip(portfolios, values):
-#            for op in p.balance({
-#                symbol: row[symbol, 'Close'] for symbol in tickers
-#            }, args.bound, timestamp):  
-#                print(op)
             v.append(p.value(quote))
         chronology.append(quote.timestamp)
         
