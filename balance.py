@@ -115,7 +115,7 @@ def do_portfolios(yfcache: YFCache):
     # Compute the set of unique tickers within the portfolio
     tickers: Set[ str ] = set()
     for p in portfolios:
-        p.add_logger(lambda e: print(e.display()))
+        p.add_logger(lambda evt: print(f"{p.name}: {evt.display()}"))
         tickers.update(p.tickers())
     # Compute the start date of the analysis, canbe None
     from_datetime = args.from_datetime
@@ -136,7 +136,7 @@ def do_portfolios(yfcache: YFCache):
                     dividends = quote.Dividends(symbol)
                     if dividends > 0:
                         p.deposit(dividends * p.position(symbol),
-                                  memo=f"{symbol} dividends of {dividends} x {p.position(symbol)}")
+                                  memo=f"{symbol} dividends of ${dividends} x {p.position(symbol):,}")
                         
         for p, v in zip(portfolios, values):
             v.append(p.value(quote))

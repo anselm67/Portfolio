@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import math
 from abc import ABC, abstractmethod
 from typing import List, Mapping, Tuple
@@ -121,14 +123,14 @@ class Balance(Action):
 class Dividends(Action):
     
     def __init__(self):
-        super().__init__(as_timestamp('1970-01-01'), 'B')
+        super().__init__(YFCache.START_DATE, 'B')
         
     def execute(self, p: Portfolio, q: Quote):
         for ticker in p.tickers():
             dividends = q.Dividends(ticker)
             if dividends > 0:
                 p.deposit(dividends * p.position(ticker),
-                          memo=f"{ticker} dividends of {dividends} x {p.position(ticker)}")
+                          memo=f"{ticker} dividends of ${dividends} x {p.position(ticker):,}")
         
 class Deposit(Action):
     
@@ -167,7 +169,7 @@ class CashInterest(Action):
     monthly_rate: float
     
     def __init__(self, yearly_rate: float):
-        super().__init__(as_timestamp('1970-01-01'), 'BMS')
+        super().__init__(YFCache.START_DATE, 'BMS')
         self.monthly_rate = yearly_rate / 12
         
     def execute(self, p: Portfolio, q: Quote):

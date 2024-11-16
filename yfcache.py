@@ -46,6 +46,7 @@ class YFTicker:
     
 class YFCache:
     CACHEDIR = 'cache'
+    START_DATE = as_timestamp('1975-01-01')
     
     directory: str
     cache: Dict[str, YFTicker]
@@ -102,7 +103,9 @@ class YFCache:
         date = reduce(lambda x, y: max(x, y), [self.get_ticker(t).first_trade for t in tickers])
         return date.tz_convert('UTC')
         
-    def reader(self, start_date: pd.Timestamp, end_date: Optional[pd.Timestamp] = None) -> 'Reader':
+    def reader(self, 
+               start_date: Optional[ pd.Timestamp ] = None,
+               end_date: Optional[pd.Timestamp] = None) -> 'Reader':
         """Create a reader to obtain a stream of quotes.
 
         Args:
@@ -113,6 +116,8 @@ class YFCache:
             Reader: A Reader instance that will provide a stream of daily Quote for the
             given date range.
         """
+        if start_date is None:
+            start_date = YFCache.START_DATE
         if end_date is None:
             end_date = pd.Timestamp.now(tz='UTC')
         return Reader(self, start_date, end_date)
