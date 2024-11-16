@@ -15,9 +15,7 @@ def make_quote(data: Mapping[str, float]) -> 'Quote':
     })
 
 class TestPortfolio(unittest.TestCase):
-
-        
-        
+  
     def test_default_cash(self):
         p = Portfolio()
         self.assertEqual(p.cash, 100000.0)
