@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
-from portfolio import LogEvent, Portfolio
+from portfolio import Portfolio
 from utils import dollars
 from yfcache import YFCache
 
@@ -72,7 +72,7 @@ DEBUG_ARGS = [
     'portfolios/ira.json', 'portfolios/main.json', 
     '--plot', '--auto-start', '-v', '--dividends'
 ]
-args = parser.parse_args(DEBUG_ARGS)
+args = parser.parse_args()
 
 def verbose(level: int, msg: str):
     if args.verbose >= level:
@@ -108,9 +108,6 @@ def plot_values(chronology: List[pd.Timestamp],
     plt.legend(title='Portfolios')
     plt.show()
 
-def event_logger(evt: LogEvent):
-    print(evt.display())
-
 def do_portfolios(yfcache: YFCache):
     if len(args.portfolios) == 0:
         return
@@ -118,7 +115,7 @@ def do_portfolios(yfcache: YFCache):
     # Compute the set of unique tickers within the portfolio
     tickers: Set[ str ] = set()
     for p in portfolios:
-        p.add_logger(event_logger)
+        p.add_logger(lambda e: print(e.display()))
         tickers.update(p.tickers())
     # Compute the start date of the analysis, canbe None
     from_datetime = args.from_datetime
