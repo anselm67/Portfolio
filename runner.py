@@ -74,11 +74,33 @@ class ClosePosition(Action):
 class Balance(Action):
     
     alloc: Mapping[str, float]
+    cash_alloc: float
+    bounds: Tuple[float, float]
     
     def __init__(self, start: pd.Timestamp, freq: str, 
                  alloc: Mapping[str, float]):
         super().__init__(start, freq, -1)
         self.alloc = alloc    
+        self.bounds = (0, 0)
+        self.cash_alloc = 1. - sum(alloc.values())
+        assert self.cash_alloc >= 0, "Sum of allocation exceeds 100%"
+
+    def balance(self, p: Portfolio, q: Quote, targets: Mapping[str, float]):        
+        for ticker, target in targets.items():
+            # Checks whether we're outside out bounds. (0 ,0) bounds always trigger.
+            hold = p.holding(ticker)
+            if (1. - self.bounds[0]) * target < hold < (1. + self.bounds[1]) * target:
+                continue
+            # Performs the rebalanmcing operation.
+            if target > hold:
+                quantity = int(math.floor(min(target - hold, p.cash) / p.price(ticker)))
+                if quantity > 0:
+                    p.buy(ticker, quantity, q.timestamp)
+            else:
+                quantity = int(math.floor((hold - target) / p.price(ticker)))
+                if quantity > 0:
+                    p.sell(ticker, quantity, q.timestamp)
+        
         
     def execute(self, p: Portfolio, q: Quote):
         print(f"{q.timestamp} Balance portfolio.")
@@ -86,15 +108,17 @@ class Balance(Action):
         for t in p.tickers():
             if self.alloc.get(t) is None:
                 p.sell(t, p.position(t))
-        # Perform the rebalancing.
-        target_dollars = { ticker: p.value() * target for ticker, target in self.alloc.items() }
-        for ticker, amount in target_dollars.items():
-            diff = min(amount - p.get_holding(ticker), p.cash)
-            quantity = int(math.floor(diff / p.price(ticker)))
-            if quantity > 0:
-                p.buy(ticker, quantity)
-            else:
-                p.sell(ticker, - quantity)
+        # Performs the stock and cash rebalancing.
+        self.balance(p, q, { ticker: p.value() * target for ticker, target in self.alloc.items() })
+        cash_target = self.cash_alloc * p.value()
+        if (1. - self.bounds[0]) * p.cash > cash_target or cash_target > (1. + self.bounds[1]) * p.cash:
+            extra_cash = p.cash - cash_target 
+            for ticker, target in self.alloc.items():
+                amount = extra_cash * (target + self.cash_alloc / len(self.alloc))
+                quantity = int(math.floor(amount / p.price(ticker)))
+                if quantity > 0:
+                    p.buy(ticker, quantity, q.timestamp)
+
 
 class Dividends(Action):
     
@@ -144,29 +168,31 @@ def plot_values(values: List[Tuple[ pd.Timestamp, float ]]):
     plt.plot(x, y)  #type: ignore
     plt.show()      #type: ignore
         
-yfcache = YFCache()
-reader = yfcache.reader(start_date=as_timestamp('2000-01-01'))
-p = Portfolio(500000, name='Testing')
+def main():
+    yfcache = YFCache()
+    reader = yfcache.reader(start_date=as_timestamp('2000-01-01'))
+    portfolio = Portfolio(500000, name='Testing')
 
-reader.require_all([ 'VTI', 'QQQ', 'GOOG'])
+    reader.require_all([ 'VTI', 'QQQ', 'GOOG'])
 
-actions = [
-    Dividends(),
-    Buy(as_timestamp('2015-01-01'), 'BMS', 12, 'VTI', 100),
-    Buy(as_timestamp('2016-01-01'), 'B', 12, 'GOOG', 100),
-    ClosePosition(as_timestamp('2020-01-02'), 'W-MON', 52, 'VTI'),
-    Balance(as_timestamp('2022-01-01'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
-]
+    actions = [
+        Dividends(),
+        Buy(as_timestamp('2015-01-01'), 'BMS', 12, 'VTI', 100),
+        Buy(as_timestamp('2016-01-01'), 'B', 12, 'GOOG', 100),
+        ClosePosition(as_timestamp('2020-01-02'), 'W-MON', 52, 'VTI'),
+        Balance(as_timestamp('2022-01-01'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
+    ]
 
-values: List[ Tuple[pd.Timestamp, float] ] = []
-for quote in reader:
-    
-    value = p.value(quote)
-    for a in actions:
-        a.run(p, quote)    
-    values.append((quote.timestamp, value))
-    
-print(p)
-plot_values(values)
+    values: List[ Tuple[pd.Timestamp, float] ] = []
 
-    
+    for quote in reader:    
+        value = portfolio.value(quote)
+        for a in actions:
+            a.run(portfolio, quote)    
+        values.append((quote.timestamp, value))
+        
+    print(portfolio)
+    plot_values(values)
+
+if __name__ == '__main__':
+    main()

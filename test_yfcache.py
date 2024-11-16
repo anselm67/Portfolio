@@ -13,7 +13,7 @@ class TestYFCache(unittest.TestCase):
         # Test last price.
         print(msft.last_price())
         
-    def test_join(self):
+    def test_reader(self):
         c = YFCache()
         r = c.reader(start_date=as_timestamp('2020-01-02'))
         r.require_all(['MSFT', 'VTI', 'GOOG'])

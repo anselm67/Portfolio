@@ -1,7 +1,6 @@
 import json
-import math
 from enum import Enum
-from typing import Dict, List, Optional, Self, Tuple
+from typing import Dict, List, Optional, Self
 
 import pandas as pd
 
@@ -85,9 +84,7 @@ class Portfolio:
     _filename: Optional[ str ]
     _positions: Dict[str, int]
     _cash: float
-    _alloc: Dict[str, float]
     quote: Quote 
-    _cash_alloc: float
     
     def __init__(self, cash: float = 100000.0, name: Optional[ str ] = None):
         self._name = name or 'no name'
@@ -174,64 +171,14 @@ class Portfolio:
             return self.position(symbol) * self.price(symbol)
         return self._cash + sum(ticker_value(symbol) for symbol in self._positions.keys())
         
-    def get_holding(self, symbol: str) -> float:
+    def holding(self, symbol: str) -> float:
         return self.price(symbol) * self.position(symbol)
-    
-    def set_allocation(self, alloc: Dict[str, float]) -> Self:
-        new_alloc = { ticker: target for ticker, target in alloc.items() }
-        cash_alloc = 1.0 - sum(new_alloc.values())
-        assert(math.isclose(1.0, cash_alloc + sum(new_alloc.values())))
-        self._alloc = new_alloc
-        self._cash_alloc = cash_alloc
-        return self
-        
-    def get_target_allocation(self, symbol: str) -> float:
-        return self._alloc.get(symbol, 0)  
-    
-    def get_cash_allocation(self) -> float:
-        return self._cash_alloc
-    
-    def balance(
-        self, 
-        quote: Quote,
-        bounds: Tuple[float, float] = (0.2, 0.2),
-    ) -> List[ LogEvent ]:
-        log : List [ LogEvent ] = [ ]
-        lower_bound, upper_bound = bounds
-        self.set_quote(quote)
-        alloc = { ticker: 0.0 for ticker in self._positions.keys() }
-        for ticker in self._alloc.keys():
-            alloc[ticker] = self.value() * self._alloc[ticker]
-        for ticker, target in alloc.items():
-            price = self.price(ticker)
-            hold = price * self.position(ticker)
-            if (1. - lower_bound) * target < hold < (1. + upper_bound) * target:
-                continue
-            order = int(math.floor(target / price) - self.position(ticker))
-            if order > 0:
-                self.buy(ticker, order, quote.timestamp, log)
-            elif order < 0:
-                self.sell(ticker, - order, quote.timestamp, log)
-        # Rebalance the cash position if needed.
-        target_cash = self._cash_alloc * self.value()
-        extra_cash = self.cash - target_cash
-        if (1. - lower_bound) * self.cash > target_cash or target_cash > (1. + upper_bound) * self.cash:            
-            for ticker in alloc.keys():
-                alloc[ticker] = extra_cash * (self._alloc[ticker] + self._cash_alloc / len(self._alloc))
-            for ticker, target in alloc.items():
-                price = self.price(ticker)
-                order = int(math.floor(target / price))
-                if order > 0:
-                    self.buy(ticker, order, quote.timestamp, log)
-                elif order < 0:
-                    self.sell(ticker, - order, quote.timestamp, log)
-        return log
-    
+           
     def __str__(self) -> str:
         value = self.value()
         text = f"{self.name} ${value:,.2f}\n\tCash: ${self._cash:,.2f}/{percent(self.cash, value)}%"
         for symbol, position in self._positions.items():
-            holding = self.get_holding(symbol)
+            holding = self.holding(symbol)
             text += f"\n\t{symbol}\t${holding:,.2f}/{position}/{percent(holding, value)}%"
         return text 
         
