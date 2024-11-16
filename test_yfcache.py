@@ -1,6 +1,8 @@
 import unittest
 
+from utils import as_timestamp
 from yfcache import YFCache
+
 
 class TestYFCache(unittest.TestCase):
 
@@ -13,8 +15,13 @@ class TestYFCache(unittest.TestCase):
         
     def test_join(self):
         c = YFCache()
-        x = c.join(['MSFT', 'VTI', 'GOOG'])
-        self.assertIsNotNone(x)
+        r = c.reader(start_date=as_timestamp('2020-01-02'))
+        r.require_all(['MSFT', 'VTI', 'GOOG'])
+        quote = next(r)
+        self.assertIsNotNone(quote)
+        self.assertGreater(quote.Close('MSFT'), 0)
+        self.assertGreater(quote.Close('VTI'), 0)
+        self.assertGreater(quote.Close('GOOG'), 0)
         
         
         

@@ -128,7 +128,7 @@ def do_portfolios(yfcache: YFCache):
     
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
     chronology: List[ pd.Timestamp ] = []
-    for quote in reader.next():
+    for quote in reader:
         if args.dividends:
             for p in portfolios:
                 for symbol in tickers:

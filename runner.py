@@ -107,6 +107,38 @@ class Dividends(Action):
             if amount > 0:
                 p.deposit(amount)
         
+class Deposit(Action):
+    
+    amount: float
+    
+    def __init__(self, start: pd.Timestamp, freq: str, count: int = -1, amount: float = 0.0):
+        super().__init__(start, freq, count)
+        if count < 0:
+            # Deposit a given amount for ever.
+            self.amount = amount
+        else:
+            # Deposit a given amount over COUNT deposits.
+            self.amount = self.amount / count
+    
+    def execute(self, p: Portfolio, q: Quote):
+        p.deposit(self.amount)
+            
+class Withdraw(Action):
+    
+    amount: float
+    
+    def __init__(self, start: pd.Timestamp, freq: str, count: int = -1, amount: float = 0.0):
+        super().__init__(start, freq, count)
+        if count < 0:
+            # Deposit agiven amount for ever.
+            self.amount = amount
+        else:
+            # Deposit a given amount over COUNT deposits.
+            self.amount = self.amount / count
+    
+    def execute(self, p: Portfolio, q: Quote):
+        p.withdraw(self.amount)
+            
 def plot_values(values: List[Tuple[ pd.Timestamp, float ]]):
     x, y = zip(*values)
     plt.plot(x, y)  #type: ignore
@@ -127,7 +159,7 @@ actions = [
 ]
 
 values: List[ Tuple[pd.Timestamp, float] ] = []
-for quote in reader.next():
+for quote in reader:
     
     value = p.value(quote)
     for a in actions:

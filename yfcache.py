@@ -5,7 +5,7 @@ import os
 import pickle
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Mapping, Optional, Tuple, cast
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, cast
 
 import pandas as pd
 import yfinance as yf  # type: ignore
@@ -117,21 +117,6 @@ class YFCache:
             end_date = pd.Timestamp.now(tz='UTC')
         return Reader(self, start_date, end_date)
     
-    def join(self, 
-             symbols: List[ str ], 
-             from_datetime: Optional[pd.Timestamp] = None, 
-             till_datetime: Optional[pd.Timestamp] = None) -> pd.DataFrame:
-        tickers = [self.get_ticker(x) for x in symbols]
-        from_datetime = from_datetime or min(t.history.index.min() for t in tickers)
-        till_datetime = till_datetime or max(t.history.index.max() for t in tickers)
-        index: Any = pd.date_range(start=from_datetime, end=till_datetime, freq='B', tz='UTC').date
-        df = pd.concat({ 
-            t.symbol: t.daily_history.reindex(index) for t in tickers  
-        }, axis=1, keys=symbols)
-        df.ffill(inplace=True)
-        df.fillna(0, inplace=True)
-        return df 
-    
 class Quote:
     
     timestamp: pd.Timestamp
@@ -205,13 +190,16 @@ class Reader:
             self.update()
         return cast(pd.DataFrame, self.dataframe)
     
-    def next(self) -> Generator[Quote, str, None]:
+    def __iter__(self) -> Iterator['Quote']:
+        return self
+    
+    def __next__(self) -> 'Quote':
         df = self.get_dataframe()
         while self.position < len(df):
             row = df.iloc[self.position]     # type: ignore
             self.position += 1
-            yield Quote.from_dataframe(cast(pd.DataFrame ,row))
-        return None
+            return Quote.from_dataframe(cast(pd.DataFrame ,row))
+        raise StopIteration
         
 
         
