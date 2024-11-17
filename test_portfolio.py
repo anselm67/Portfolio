@@ -4,7 +4,7 @@ from typing import Mapping
 import pandas as pd
 
 from portfolio import Portfolio
-from runner import Balance
+from actions import Balance
 from utils import as_timestamp
 from yfcache import Quote
 

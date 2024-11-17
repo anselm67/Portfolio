@@ -143,7 +143,7 @@ class Deposit(Action):
             self.amount = amount
         else:
             # Deposit a given amount over COUNT deposits.
-            self.amount = self.amount / count
+            self.amount = amount / count
     
     def execute(self, p: Portfolio, q: Quote):
         p.deposit(self.amount)
@@ -159,7 +159,7 @@ class Withdraw(Action):
             self.amount = amount
         else:
             # Deposit a given amount over COUNT deposits.
-            self.amount = self.amount / count
+            self.amount = amount / count
     
     def execute(self, p: Portfolio, q: Quote):
         p.withdraw(self.amount)
@@ -174,7 +174,8 @@ class CashInterest(Action):
         
     def execute(self, p: Portfolio, q: Quote):
         amount = self.monthly_rate * p.cash
-        p.deposit(amount, memo='Monthly cash interest rate.')
+        if amount > 0:
+            p.deposit(amount, memo='Monthly cash interest rate.')
         
         
 def plot_values(values: List[Tuple[ pd.Timestamp, float ]]):

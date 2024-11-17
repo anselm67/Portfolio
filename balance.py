@@ -6,14 +6,15 @@ import argparse
 import datetime
 import math
 import sys
-from typing import List, Set, Tuple
+from typing import Any, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
+from actions import Action, Balance, CashInterest, Dividends
 from portfolio import Portfolio
-from utils import dollars
+from utils import as_timestamp, dollars
 from yfcache import YFCache
 
 
@@ -38,18 +39,29 @@ def parse_range(arg: str,
         print(ex)
         raise argparse.ArgumentTypeError(f"Invalid range {arg}, expect 'lower:upper'")
 
+class RepeatableTwoArgsAction(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: Optional[str] = None,
+    ) -> None:
+        # Initialize the attribute as a list if it does not exist
+        if getattr(namespace, self.dest) is None:
+            setattr(namespace, self.dest, [])
+        if not isinstance(values, list) or len(values) != 2:
+            raise ValueError(f"Expected exactly 2 arguments for {option_string}, got {values}")
+        # Append the tuple of values
+        getattr(namespace, self.dest).append(tuple(values))
+        
 parser = argparse.ArgumentParser(
     prog='balance.py',
     description="Explores a rebalancing strategy."
 )
-parser.add_argument('portfolios', nargs='*',
+parser.add_argument('-p', '--portfolio', nargs=2, action=RepeatableTwoArgsAction,
+                    metavar=('portfolio.json', 'program.txt'),
                     help='Json portfolio file.')
-parser.add_argument('--dividends', action='store_true', default=False,
-                    help='Deposit dividends as cash into the portfolio.')
-parser.add_argument('--bound', type=lambda s : parse_range(s, ordered=False), default=(0.25, 0.25),
-                    metavar='lower:upper',
-                    help="""Bounds for buy/sell trigger; Sell at (1-lower)*target and buy at (1+upper)*target.
-                    If provided as BOUND the range is [BOUND, -BOUND], otherwise it can be proivided as LOWER:UPPER""")
 parser.add_argument('-v', '--verbose', action='count', default=0,
                     help='Chat some as we procceed.')
 parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
@@ -69,8 +81,9 @@ parser.add_argument('--update-cache', action='store_true', default=False,
                     help='Updates the cache with the freshest stock quotes.')
 
 DEBUG_ARGS = [
-    'portfolios/ira.json', 'portfolios/main.json', 
-    '--plot', '--auto-start', '-v', '--dividends'
+    '-p', 'portfolios/ira.json', 'dividends',
+    '-p', 'portfolios/main.json', 'full',
+    '--plot', '--auto-start', '-v'
 ]
 args = parser.parse_args()
 
@@ -87,12 +100,6 @@ def annual_returns(data: pd.DataFrame, start_value: float, end_value: float) -> 
     per_day = math.pow(gain, 1. / days) if days > 0 else 1
     return 100.0 * (math.pow(per_day, 365) - 1.0) if abs(per_day) > 0 else 0
 
-ALLOC = {
-    'GOOG': 0.1,
-    'VTI': 0.4,
-    'QQQ': 0.2,
-}
-
 def plot_values(chronology: List[pd.Timestamp], 
                 names: List[ str ], 
                 values: List[ List[ float ] ]):
@@ -108,20 +115,35 @@ def plot_values(chronology: List[pd.Timestamp],
     plt.legend(title='Portfolios')
     plt.show()
 
+def get_actions(actions_name: str) -> List[ Action ]:
+    if actions_name == 'dividends':
+        return [
+            Dividends(),
+        ]
+    elif actions_name == 'full':
+       return [
+            Dividends(),
+            CashInterest(0.05),
+            Balance(as_timestamp('2022-01-01'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
+        ]
+    else:
+        raise ValueError(f"{actions_name} program not found.")
+    
 def do_portfolios(yfcache: YFCache):
-    if len(args.portfolios) == 0:
+    if len(args.portfolio) == 0:
         return
-    portfolios = [Portfolio.load(f) for f in args.portfolios]
+    portfolios = [(Portfolio.load(p), get_actions(a)) for (p, a) in args.portfolio]
     # Compute the set of unique tickers within the portfolio
     tickers: Set[ str ] = set()
-    for p in portfolios:
+    for p, _ in portfolios:
         p.add_logger(lambda evt: print(f"{p.name}: {evt.display()}"))
         tickers.update(p.tickers())
-    # Compute the start date of the analysis, canbe None
-    from_datetime = args.from_datetime
+    # Computes the start date of the analysis, None allowed.
     if args.auto_start:
         from_datetime = yfcache.start_date(list(tickers))
         verbose(1, f"Starting analysis on {from_datetime}")
+    else:
+        from_datetime = args.from_datetime
     # Line up the prices of all requested issues.
     reader = yfcache.reader(start_date=from_datetime,
                             end_date=args.till_datetime)
@@ -130,23 +152,17 @@ def do_portfolios(yfcache: YFCache):
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
     chronology: List[ pd.Timestamp ] = []
     for quote in reader:
-        if args.dividends:
-            for p in portfolios:
-                for symbol in p.tickers():
-                    dividends = quote.Dividends(symbol)
-                    if dividends > 0:
-                        p.deposit(dividends * p.position(symbol),
-                                  memo=f"{symbol} dividends of ${dividends} x {p.position(symbol):,}")
-                        
-        for p, v in zip(portfolios, values):
+        for (p, actions), v in zip(portfolios, values):
             v.append(p.value(quote))
+            for a in actions:
+                a.run(p, quote)
         chronology.append(quote.timestamp)
         
-    for p, v in zip(portfolios, values):
+    for (p, _), v in zip(portfolios, values):
         print(p)
 #        print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")
     if args.plot:
-        plot_values(chronology, [p.name for p in portfolios], values)
+        plot_values(chronology, [p.name for p, _ in portfolios], values)
     
 def main(): 
     yfcache = YFCache()
