@@ -126,6 +126,8 @@ def get_actions(actions_name: str) -> List[ Action ]:
             CashInterest(0.05),
             Balance(as_timestamp('2022-01-01'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
         ]
+    elif actions_name == 'noop':
+        return [ ]
     else:
         raise ValueError(f"{actions_name} program not found.")
     
@@ -139,11 +141,12 @@ def do_portfolios(yfcache: YFCache):
         p.add_logger(lambda evt: print(f"{p.name}: {evt.display()}"))
         tickers.update(p.tickers())
     # Computes the start date of the analysis, None allowed.
+    from_datetime = None
     if args.auto_start:
         from_datetime = yfcache.start_date(list(tickers))
         verbose(1, f"Starting analysis on {from_datetime}")
-    else:
-        from_datetime = args.from_datetime
+    elif args.from_datetime is not None:
+        from_datetime = pd.Timestamp(args.from_datetime).tz_localize('UTC')
     # Line up the prices of all requested issues.
     reader = yfcache.reader(start_date=from_datetime,
                             end_date=args.till_datetime)
