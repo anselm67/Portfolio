@@ -4,17 +4,17 @@
 
 import argparse
 import datetime
-import math
 import sys
+from parser import parse
 from typing import Any, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
-from portfolio import Portfolio
-from rules import Balance, CashInterest, Dividends, Rule
-from utils import as_timestamp, dollars
+from portfolio import LogEvent, Portfolio
+from rules import Rule
+from utils import annual_returns, dollars
 from yfcache import YFCache
 
 
@@ -81,8 +81,7 @@ parser.add_argument('--update-cache', action='store_true', default=False,
                     help='Updates the cache with the freshest stock quotes.')
 
 DEBUG_ARGS = [
-    '-p', 'portfolios/ira.json', 'dividends',
-    '-p', 'portfolios/main.json', 'full',
+    '-p', 'samples/main.json', 'samples/dividends.rules',
     '--plot', '--auto-start', '-v'
 ]
 args = parser.parse_args()
@@ -93,12 +92,6 @@ def verbose(level: int, msg: str):
 
 def exit(msg: str):
     sys.exit(msg)
-
-def annual_returns(data: pd.DataFrame, start_value: float, end_value: float) -> float:
-    days = float((data.index[-1] - data.index[0]).days) # type: ignore
-    gain = 1.0 + (end_value - start_value) / start_value
-    per_day = math.pow(gain, 1. / days) if days > 0 else 1
-    return 100.0 * (math.pow(per_day, 365) - 1.0) if abs(per_day) > 0 else 0
 
 def plot_values(chronology: List[pd.Timestamp], 
                 names: List[ str ], 
@@ -115,30 +108,20 @@ def plot_values(chronology: List[pd.Timestamp],
     plt.legend(title='Portfolios')
     plt.show()
 
-def get_actions(actions_name: str) -> List[ Rule ]:
-    if actions_name == 'dividends':
-        return [
-            Dividends(),
-        ]
-    elif actions_name == 'full':
-       return [
-            Dividends(),
-            CashInterest(0.05),
-            Balance(as_timestamp('2022-01-01'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
-        ]
-    elif actions_name == 'noop':
-        return [ ]
-    else:
-        raise ValueError(f"{actions_name} program not found.")
-    
+def parse_actions(filename: str) -> List[ Rule ]:
+    return parse(filename)    
+
+def logger(p: Portfolio, evt: LogEvent):
+    verbose(1, f"{p.name}: {evt.display()}")
+
 def do_portfolios(yfcache: YFCache):
     if len(args.portfolio) == 0:
         return
-    portfolios = [(Portfolio.load(p), get_actions(a)) for (p, a) in args.portfolio]
+    portfolios = [(Portfolio.load(p), parse_actions(a)) for (p, a) in args.portfolio]
     # Compute the set of unique tickers within the portfolio
     tickers: Set[ str ] = set()
     for p, _ in portfolios:
-        p.add_logger(lambda evt: print(f"{p.name}: {evt.display()}"))
+        p.add_logger(logger)
         tickers.update(p.tickers())
     # Computes the start date of the analysis, None allowed.
     from_datetime = None
@@ -163,7 +146,7 @@ def do_portfolios(yfcache: YFCache):
         
     for (p, _), v in zip(portfolios, values):
         print(p)
-#        print(f"Annual returns: {annual_returns(prices, args.cash, p.value()):.2f}%")
+        print(f"Annual returns: {annual_returns(pd.to_datetime(chronology), p.initial_value, p.value()):.2f}%")
     if args.plot:
         plot_values(chronology, [p.name for p, _ in portfolios], values)
     

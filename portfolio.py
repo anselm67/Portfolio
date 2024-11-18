@@ -113,8 +113,9 @@ class Portfolio:
     _filename: Optional[ str ]
     _positions: Dict[str, int]
     _cash: float
+    initial_value: float = -1.0
     quote: Quote 
-    loggers: List[ Callable[[LogEvent], None]]
+    loggers: List[ Callable[['Portfolio', LogEvent], None]]
     
     def __init__(self, cash: float = 100000.0, name: Optional[ str ] = None):
         self._name = name or 'no name'
@@ -128,16 +129,18 @@ class Portfolio:
 
     def _log(self, evt: LogEvent):
         for l in self.loggers:
-            l(evt)
+            l(self, evt)
     
-    def add_logger(self, logger: Callable[[LogEvent], None]):
+    def add_logger(self, logger: Callable[['Portfolio', LogEvent], None]):
         self.loggers.append(logger)
         
-    def remove_logger(self, logger: Callable[[LogEvent], None]):
+    def remove_logger(self, logger: Callable[['Portfolio', LogEvent], None]):
         self.loggers.remove(logger)
 
     def set_quote(self, quote: Quote) -> Self:
         self.quote = quote
+        if self.initial_value < 0 and self.value() > 0:
+            self.initial_value = self.value()
         return self
             
     def price(self, symbol: str) -> float:

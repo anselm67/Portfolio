@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 
 
@@ -21,4 +23,10 @@ def as_timestamp(x: str | pd.Timestamp) -> pd.Timestamp:
     else:
         assert isinstance(x, pd.Timestamp), f"{x} should be a string or Timestamp"
         return x
+
+def annual_returns(index: pd.DatetimeIndex, start_value: float, end_value: float) -> float:
+    days = float((index[-1] - index[0]).days) 
+    gain = 1.0 + (end_value - start_value) / start_value
+    per_day = math.pow(gain, 1. / days) if days > 0 else 1
+    return 100.0 * (math.pow(per_day, 365) - 1.0) if abs(per_day) > 0 else 0
 
