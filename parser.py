@@ -171,7 +171,7 @@ def parse_rule(text:str, schedule: Optional[ Schedule ] = None) -> Rule:
     raise SyntaxError(f"Invalid rule {text}")
 
 def parse_file(filename: str, file: IO[str]) -> List [ Rule ]:
-    actions : List[ Rule ]= [] 
+    rules : List[ Rule ]= [] 
     lineno = 0
     for line in file:
         try:
@@ -182,14 +182,14 @@ def parse_file(filename: str, file: IO[str]) -> List [ Rule ]:
             if schedule is not None:
                 if text is None or text == '':
                     raise SyntaxError(f"No rules defined for schedule in {line}.")
-                actions.append(parse_rule(text, schedule))
+                rules.append(parse_rule(text, schedule))
             else:
-                actions.append(parse_rule(line))
+                rules.append(parse_rule(line))
         except SyntaxError as e:
             e.decorate(filename, lineno) 
             raise e
             
-    return actions
+    return rules
 
 def parse_string(text: str) -> List[ Rule ]:
     return parse_file('string', StringIO(text))
@@ -198,11 +198,10 @@ def parse(filename: str) -> List[ Rule ]:
     with open(filename, 'r') as file:
         return parse_file(filename, file)
             
-    
 if __name__ == '__main__':
     for arg in sys.argv[1:]:
         try:
             rules = parse(arg)
-            print(f"{arg} ok: {len(rules)} actions.")
+            print(f"{arg} ok: {len(rules)} rules.")
         except SyntaxError as e:
             print(f"Error {arg} at line {e.lineno}: {e}")
