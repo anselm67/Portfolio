@@ -94,15 +94,18 @@ class Balance(Rule):
         for ticker, target in targets.items():
             # Checks whether we're outside out bounds. (0 ,0) bounds always trigger.
             hold = p.holding(ticker)
+            price = p.price(ticker)
+            if price <= 0: 
+                continue
             if (1. - self.bounds[0]) * target < hold < (1. + self.bounds[1]) * target:
                 continue
             # Performs the rebalanmcing operation.
             if target > hold:
-                quantity = int(math.floor(min(target - hold, p.cash) / p.price(ticker)))
+                quantity = int(math.floor(min(target - hold, p.cash) / price))
                 if quantity > 0:
                     p.buy(ticker, quantity, memo='Rebalancing')
             else:
-                quantity = int(math.floor((hold - target) / p.price(ticker)))
+                quantity = int(math.floor((hold - target) / price))
                 if quantity > 0:
                     p.sell(ticker, quantity, memo='Rebalancing')
         
@@ -118,8 +121,11 @@ class Balance(Rule):
         if (1. - self.bounds[0]) * p.cash > cash_target or cash_target > (1. + self.bounds[1]) * p.cash:
             extra_cash = p.cash - cash_target 
             for ticker, target in self.alloc.items():
+                price = p.price(ticker)
+                if price <= 0: 
+                    continue
                 amount = extra_cash * (target + self.cash_alloc / len(self.alloc))
-                quantity = int(math.floor(amount / p.price(ticker)))
+                quantity = int(math.floor(amount / price))
                 if quantity > 0:
                     p.buy(ticker, quantity, memo='Cash rebalancing')
 
