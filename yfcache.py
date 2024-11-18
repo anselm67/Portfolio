@@ -1,6 +1,7 @@
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownArgumentType=false
 
+import datetime
 import os
 import pickle
 from functools import reduce
@@ -10,7 +11,7 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, cast
 import pandas as pd
 import yfinance as yf  # type: ignore
 
-from utils import as_timestamp  # type: ignore
+from utils import as_date, as_timestamp  # type: ignore
 
 
 class YFTicker:
@@ -149,16 +150,16 @@ class Quote:
 class Reader:
         
     yfcache: YFCache
-    start_date: pd.Timestamp
-    end_date: pd.Timestamp
+    start_date: datetime.date
+    end_date: datetime.date
     required: set[ str ]
     dataframe: Optional[ pd.DataFrame ]
     position: int
     
     def __init__(self, yfcache: YFCache, start_date: pd.Timestamp, end_date: pd.Timestamp):
         self.yfcache = yfcache
-        self.start_date = start_date
-        self.end_date = end_date
+        self.start_date = as_date(start_date)
+        self.end_date = as_date(end_date)
         self.required = set()
         self.dirty = True
         self.dataframe = None
