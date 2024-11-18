@@ -12,7 +12,7 @@ from utils import as_timestamp
 from yfcache import Quote, YFCache
 
 
-class Action(ABC):
+class Rule(ABC):
     
     start: pd.Timestamp
     schedule: List[ pd.Timestamp ]
@@ -45,7 +45,7 @@ class Action(ABC):
                 self.count -= 1
         return p
             
-class Buy(Action):
+class Buy(Rule):
     
     symbol: str
     quantity: int
@@ -62,7 +62,7 @@ class Buy(Action):
     def execute(self, p: Portfolio, q: Quote):
         p.buy(self.symbol, self.quantity)
             
-class ClosePosition(Action):
+class ClosePosition(Rule):
     
     symbol: str
     
@@ -77,7 +77,7 @@ class ClosePosition(Action):
         p.sell(self.symbol,
                position if self.count == 1 else int(position / self.count))
 
-class Balance(Action):
+class Balance(Rule):
     
     alloc: Mapping[str, float]
     cash_alloc: float
@@ -125,7 +125,7 @@ class Balance(Action):
                     p.buy(ticker, quantity, memo='Cash rebalancing')
 
 
-class Dividends(Action):
+class Dividends(Rule):
     
     def __init__(self):
         super().__init__(YFCache.START_DATE, 'B')
@@ -137,7 +137,7 @@ class Dividends(Action):
                 p.deposit(dividends * p.position(ticker),
                           memo=f"{ticker} dividends of ${dividends} x {p.position(ticker):,}")
         
-class Deposit(Action):
+class Deposit(Rule):
     
     amount: float
     
@@ -153,7 +153,7 @@ class Deposit(Action):
     def execute(self, p: Portfolio, q: Quote):
         p.deposit(self.amount)
             
-class Withdraw(Action):
+class Withdraw(Rule):
     
     amount: float
     
@@ -169,7 +169,7 @@ class Withdraw(Action):
     def execute(self, p: Portfolio, q: Quote):
         p.withdraw(self.amount)
          
-class CashInterest(Action):
+class CashInterest(Rule):
     
     monthly_rate: float
     

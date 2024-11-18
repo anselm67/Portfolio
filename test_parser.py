@@ -10,7 +10,7 @@ from parser import (
 )
 from typing import cast
 
-from actions import (
+from rules import (
     Balance,
     Buy,
     CashInterest,

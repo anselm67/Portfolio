@@ -8,14 +8,14 @@ from typing import IO, Callable, List, Mapping, Optional, Tuple
 
 import pandas as pd
 
-from actions import (
-    Action,
+from rules import (
     Balance,
     Buy,
     CashInterest,
     ClosePosition,
     Deposit,
     Dividends,
+    Rule,
     Withdraw,
 )
 from utils import as_timestamp
@@ -151,7 +151,7 @@ def parse_ClosePosition(line: str, schedule: Optional[Schedule] = None) -> Close
                          1 if schedule.count < 0 else schedule.count, 
                          m.group(1))
     
-PARSERS: Mapping[str, Callable[[str, Optional[Schedule]], Action]] = {
+PARSERS: Mapping[str, Callable[[str, Optional[Schedule]], Rule]] = {
     'dividends': parse_Dividends,
     'cash-interest': parse_CashInterest,
     'deposit': parse_Deposit,
@@ -162,7 +162,7 @@ PARSERS: Mapping[str, Callable[[str, Optional[Schedule]], Action]] = {
 }
 
 FIRST_TOKEN = re.compile(r'^(\S+)(\s.*)?$')
-def parse_rule(text:str, schedule: Optional[ Schedule ] = None) -> Action:
+def parse_rule(text:str, schedule: Optional[ Schedule ] = None) -> Rule:
     if (m := re.match(FIRST_TOKEN, text)) is not None:
         if (parser := PARSERS.get(m.group(1))) is not None:
             return parser(trim_line(m.group(2)), schedule)
@@ -170,8 +170,8 @@ def parse_rule(text:str, schedule: Optional[ Schedule ] = None) -> Action:
             raise SyntaxError(f"Unknown rule '{m.group(1)}'")
     raise SyntaxError(f"Invalid rule {text}")
 
-def parse_file(filename: str, file: IO[str]) -> List [ Action ]:
-    actions : List[ Action ]= [] 
+def parse_file(filename: str, file: IO[str]) -> List [ Rule ]:
+    actions : List[ Rule ]= [] 
     lineno = 0
     for line in file:
         try:
@@ -191,10 +191,10 @@ def parse_file(filename: str, file: IO[str]) -> List [ Action ]:
             
     return actions
 
-def parse_string(text: str) -> List[ Action ]:
+def parse_string(text: str) -> List[ Rule ]:
     return parse_file('string', StringIO(text))
 
-def parse(filename: str) -> List[ Action ]:
+def parse(filename: str) -> List[ Rule ]:
     with open(filename, 'r') as file:
         return parse_file(filename, file)
             

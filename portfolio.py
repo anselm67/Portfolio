@@ -38,7 +38,7 @@ class LogEvent:
     def display(self) -> str:
         return f"{self.timestamp} {self.op}"
         
-class Buy(LogEvent):
+class BuyEvent(LogEvent):
     
     symbol: str
     quantity: int
@@ -60,7 +60,7 @@ class Buy(LogEvent):
             f"${self.quantity * self.price:,.2f} ({self.memo})"
         )
         
-class Sell(LogEvent):
+class SellEvent(LogEvent):
     
     def __init__(self, symbol: str, quantity: int, price: float,
                  timestamp: Optional[ pd.Timestamp ] = None,
@@ -78,7 +78,7 @@ class Sell(LogEvent):
             f"${self.quantity * self.price:,.2f} ({self.memo})"
         )
         
-class Deposit(LogEvent):
+class DepositEvent(LogEvent):
     
     def __init__(self, amount: float,
                  timestamp: Optional[ pd.Timestamp ] = None,
@@ -93,7 +93,7 @@ class Deposit(LogEvent):
             f"${self.amount:,.2f} ({self.memo})"
         )
         
-class Withdraw(LogEvent):
+class WithdrawEvent(LogEvent):
     
     def __init__(self, amount: float,
                  timestamp: Optional[ pd.Timestamp ] = None,
@@ -147,14 +147,14 @@ class Portfolio:
         self._positions[symbol] = self._positions.get(symbol, 0) + quantity
         self._cash -= (quantity * self.price(symbol))
         assert(self._cash >= 0.0)
-        self._log(Buy(symbol, quantity, self.price(symbol), self.quote.timestamp, memo=memo))
+        self._log(BuyEvent(symbol, quantity, self.price(symbol), self.quote.timestamp, memo=memo))
         return self._positions[symbol]
 
     def sell(self, symbol: str, quantity: int, memo: Optional[ str ]=None) -> int:
         assert 0 <= quantity <= self._positions.get(symbol, 0), f"Invalid sell quantity for {symbol} {quantity}"
         self._positions[symbol] -= quantity
         self._cash += (quantity * self.price(symbol))
-        self._log(Sell(symbol, quantity, self.price(symbol), self.quote.timestamp, memo=memo))
+        self._log(SellEvent(symbol, quantity, self.price(symbol), self.quote.timestamp, memo=memo))
         if self._positions[symbol] == 0:
             del self._positions[symbol]
             return 0
@@ -168,13 +168,13 @@ class Portfolio:
     def deposit(self, amount: float, memo: Optional[ str ]=None) -> float:
         assert(amount > 0)
         self._cash += amount
-        self._log(Deposit(amount, self.quote.timestamp, memo=memo))
+        self._log(DepositEvent(amount, self.quote.timestamp, memo=memo))
         return self._cash
     
     def withdraw(self, amount: float, memo: Optional[ str ]=None) -> float:
         assert(amount > 0)
         self._cash -= amount
-        self._log(Withdraw(amount, self.quote.timestamp, memo=memo))
+        self._log(WithdrawEvent(amount, self.quote.timestamp, memo=memo))
         return self._cash
 
     @property

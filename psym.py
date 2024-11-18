@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
-from actions import Action, Balance, CashInterest, Dividends
 from portfolio import Portfolio
+from rules import Balance, CashInterest, Dividends, Rule
 from utils import as_timestamp, dollars
 from yfcache import YFCache
 
@@ -115,7 +115,7 @@ def plot_values(chronology: List[pd.Timestamp],
     plt.legend(title='Portfolios')
     plt.show()
 
-def get_actions(actions_name: str) -> List[ Action ]:
+def get_actions(actions_name: str) -> List[ Rule ]:
     if actions_name == 'dividends':
         return [
             Dividends(),

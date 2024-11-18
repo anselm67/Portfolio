@@ -4,7 +4,7 @@ from typing import Mapping, Tuple
 import pandas as pd
 
 from portfolio import Portfolio
-from actions import (
+from rules import (
     Balance,
     Buy,
     CashInterest,
