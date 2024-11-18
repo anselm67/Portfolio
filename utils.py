@@ -1,4 +1,5 @@
 import math
+from datetime import date
 
 import pandas as pd
 
@@ -24,6 +25,12 @@ def as_timestamp(x: str | pd.Timestamp) -> pd.Timestamp:
         assert isinstance(x, pd.Timestamp), f"{x} should be a string or Timestamp"
         return x
 
+def as_date(date_or_timestamp: date | pd.Timestamp) -> date:
+    if isinstance(date_or_timestamp, pd.Timestamp):
+        return date_or_timestamp.date()
+    else:
+        return date_or_timestamp
+    
 def annual_returns(index: pd.DatetimeIndex, start_value: float, end_value: float) -> float:
     days = float((index[-1] - index[0]).days) 
     gain = 1.0 + (end_value - start_value) / start_value
