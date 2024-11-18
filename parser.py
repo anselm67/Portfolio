@@ -200,9 +200,9 @@ def parse(filename: str) -> List[ Action ]:
             
     
 if __name__ == '__main__':
-#    for arg in sys.argv[1:]:
-    for arg in [ 'portfolios/sample.rules']:
+    for arg in sys.argv[1:]:
         try:
-            parse(arg)
+            rules = parse(arg)
+            print(f"{arg} ok: {len(rules)} actions.")
         except SyntaxError as e:
             print(f"Error {arg} at line {e.lineno}: {e}")
