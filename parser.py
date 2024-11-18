@@ -8,7 +8,16 @@ from typing import IO, Callable, List, Mapping, Optional, Tuple
 
 import pandas as pd
 
-from actions import Action, Balance, CashInterest, Deposit, Dividends
+from actions import (
+    Action,
+    Balance,
+    Buy,
+    CashInterest,
+    ClosePosition,
+    Deposit,
+    Dividends,
+    Withdraw,
+)
 from utils import as_timestamp
 from yfcache import YFCache
 
@@ -95,7 +104,10 @@ def parse_CashInterest(line: str, schedule: Optional[Schedule] = None) -> CashIn
 def parse_Deposit(line: str, schedule: Optional[Schedule] = None) -> Deposit:
     amount = parse_dollars(line)
     assert schedule is not None, "Deposit requires a start date."
-    return Deposit(schedule.start_date, schedule.freq or 'D', schedule.count, amount)
+    return Deposit(schedule.start_date, 
+                   schedule.freq or 'B', 
+                   1 if schedule.count < 0 else schedule.count, 
+                   amount)
 
 TARGET=re.compile(r'^\s*([^:\s]+)\s*:\s*(\d+(?:\.\d*)?%?)\s*$')
 def parse_Balance(line: str, schedule: Optional[Schedule] = None) -> Balance:
@@ -112,12 +124,41 @@ def parse_Balance(line: str, schedule: Optional[Schedule] = None) -> Balance:
         raise SyntaxError(f"Allocation exceeds 100%")
     return Balance(schedule.start_date, schedule.freq or 'B', alloc)
     
+def parse_Withdraw(line: str, schedule: Optional[Schedule] = None) -> Withdraw:
+    amount = parse_dollars(line)
+    assert schedule is not None, "Withdraw requires a start date."
+    return Withdraw(schedule.start_date, schedule.freq or 'D', schedule.count, amount)
+    
+BUY = re.compile(r'^\s*(\d+)\s+(\S+)\s*$')
+def parse_Buy(line: str, schedule: Optional[Schedule] = None) -> Buy:
+    if schedule is None:
+        schedule = Schedule(YFCache.START_DATE, 'B', 1)
+    if (m := re.match(BUY, line)) is None:
+        raise SyntaxError(f"Invalid buy parameters {line}, expecting QUANTITY TICKER.")
+    return Buy(schedule.start_date, 
+               schedule.freq or 'B', 
+               1 if schedule.count < 0 else schedule.count, 
+               m.group(2), int(m.group(1)))
+
+TICKER=re.compile(r'^\s*([\S]+)\s*$')
+def parse_ClosePosition(line: str, schedule: Optional[Schedule] = None) -> ClosePosition:
+    if (m := re.match(TICKER, line)) is None:
+        raise SyntaxError(f"Which TICKER do you want to close the position of.")
+    if schedule is None:
+        raise SyntaxError("ClosePosition requires a start date.")
+    return ClosePosition(schedule.start_date, 
+                         schedule.freq or 'B', 
+                         1 if schedule.count < 0 else schedule.count, 
+                         m.group(1))
     
 PARSERS: Mapping[str, Callable[[str, Optional[Schedule]], Action]] = {
     'dividends': parse_Dividends,
     'cash-interest': parse_CashInterest,
     'deposit': parse_Deposit,
-    'balance': parse_Balance
+    'balance': parse_Balance,
+    'withdraw': parse_Withdraw,
+    'buy': parse_Buy,
+    'close-position': parse_ClosePosition
 }
 
 FIRST_TOKEN = re.compile(r'^(\S+)(\s.*)?$')
@@ -131,9 +172,10 @@ def parse_rule(text:str, schedule: Optional[ Schedule ] = None) -> Action:
 
 def parse_file(filename: str, file: IO[str]) -> List [ Action ]:
     actions : List[ Action ]= [] 
-    lineno = 1
+    lineno = 0
     for line in file:
         try:
+            lineno += 1
             if re.match(BLANK_LINE, line):
                 continue
             schedule, text = parse_schedule(line)
@@ -143,7 +185,6 @@ def parse_file(filename: str, file: IO[str]) -> List [ Action ]:
                 actions.append(parse_rule(text, schedule))
             else:
                 actions.append(parse_rule(line))
-            lineno += 1
         except SyntaxError as e:
             e.decorate(filename, lineno) 
             raise e

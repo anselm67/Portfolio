@@ -54,7 +54,10 @@ class Buy(Action):
                  symbol: str, quantity: int):
         super().__init__(start, freq, count)
         self.symbol = symbol
-        self.quantity = quantity
+        if count <= 0:
+            self.quantity = quantity
+        else:
+            self.quantity = int(math.floor(quantity / count))
         
     def execute(self, p: Portfolio, q: Quote):
         p.buy(self.symbol, self.quantity)

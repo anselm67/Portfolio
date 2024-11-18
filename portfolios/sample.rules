@@ -7,10 +7,13 @@ cash-interest 5%
 2015-01-01 [12 x BMS] deposit  $100 
 
 # Rebalance the portfolio every month start on first business day.
-balance GOOG: 10%, VTI: 40%, QQQ: 20%
+1975-01-01 [BMS] balance GOOG: 10%, VTI: 40%, QQQ: 20%
 
 # Starting on 2020-01-01, withdraw $100 every first business day of week, for 52 weeks.
-2020-01-01 withdraw 52 x W-MON $100
+2020-01-01 [52 x W-MON] withdraw $1k
 
 # Starting on 2020-01-01, buy 120 APPL by buying 10 each week.
-2020-01-01 12 x W-MON buy 120 AAPL 
+2020-01-01 [12 x W-MON] buy 120 AAPL 
+
+# Close the APPL position fully over 52 weeks.
+2022-01-01 [ 52 x W-MON ] close-position AAPL

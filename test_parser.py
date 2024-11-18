@@ -10,7 +10,15 @@ from parser import (
 )
 from typing import cast
 
-from actions import Balance, CashInterest, Deposit, Dividends
+from actions import (
+    Balance,
+    Buy,
+    CashInterest,
+    ClosePosition,
+    Deposit,
+    Dividends,
+    Withdraw,
+)
 from utils import as_timestamp
 from yfcache import YFCache
 
@@ -109,10 +117,32 @@ class TestParser(unittest.TestCase):
         self.assertTrue(isinstance(actions[0], Balance))
         a = cast(Balance, actions[0])
         self.assertEqual(a.start, YFCache.START_DATE)
-        self.assertEqual(a.alloc['GOOG'], 0.1)
-        self.assertEqual(a.alloc['VTI'], 0.4)
-        self.assertEqual(a.alloc['QQQ'], 0.2)
-        self.assertEqual(a.cash_alloc, 0.3)
+        self.assertAlmostEqual(a.alloc['GOOG'], 0.1)
+        self.assertAlmostEqual(a.alloc['VTI'], 0.4)
+        self.assertAlmostEqual(a.alloc['QQQ'], 0.2)
+        self.assertAlmostEqual(a.cash_alloc, 0.3)
         
+    def test_parse_Withraw(self):
+        actions = parse_string("2020-01-01 [52 x W-MON] withdraw $1k")
+        self.assertEqual(len(actions), 1)
+        self.assertTrue(isinstance(actions[0], Withdraw))
+        a = cast(Withdraw, actions[0])
+        self.assertEqual(a.start, as_timestamp('2020-01-01'))
+        self.assertAlmostEqual(a.amount, 1000 / 52)
         
+    def test_parse_Buy(self):
+        actions = parse_string("2020-01-01 [12 x W-MON] buy 120 AAPL ")
+        self.assertEqual(len(actions), 1)
+        self.assertTrue(isinstance(actions[0], Buy))
+        a = cast(Buy, actions[0])
+        self.assertEqual(a.start, as_timestamp('2020-01-01'))
+        self.assertEqual(a.symbol, 'AAPL')
+        self.assertAlmostEqual(a.quantity, 120 / 12)
         
+    def test_parse_ClosePosition(self):
+        actions = parse_string("2022-01-01 [ 52 x W-MON ] close-position AAPL # Comments there")
+        self.assertEqual(len(actions), 1)
+        self.assertTrue(isinstance(actions[0], ClosePosition))
+        a = cast(ClosePosition, actions[0])
+        self.assertEqual(a.start, as_timestamp('2022-01-01'))
+        self.assertEqual(a.symbol, 'AAPL')
