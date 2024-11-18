@@ -219,12 +219,25 @@ class Portfolio:
         
     @staticmethod
     def load(filename: str) -> "Portfolio":
-        with open(filename, "r") as input:
-            obj = json.load(input)
-        p = Portfolio(obj.get('cash', 0))
-        p._filename = filename
-        p._name = obj.get('name', 'No Name')
-        p.set_positions(obj.get('positions', {}))
+        """Loads a portfolio from a json file.
+        This method can also be used to create special portfolios:
+        - *empty* will return an empty portfolio with no cash.
+        
+        Args:
+            filename (str): Name of the file to load, or name of "special" portfolios.
+
+        Returns:
+            Portfolio: A fresh Portfolio instance.
+        """
+        if filename == '*empty*':
+            p = Portfolio(0, name='Empty Portfolio')
+        else:
+            with open(filename, "r") as input:
+                obj = json.load(input)
+            p = Portfolio(obj.get('cash', 0))
+            p._filename = filename
+            p._name = obj.get('name', 'No Name')
+            p.set_positions(obj.get('positions', {}))
         return p
         
     def save(self, filename: Optional[ str ] = None):
