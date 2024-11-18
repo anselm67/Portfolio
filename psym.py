@@ -108,7 +108,7 @@ def plot_values(chronology: List[pd.Timestamp],
     plt.legend(title='Portfolios')
     plt.show()
 
-def parse_actions(filename: str) -> List[ Rule ]:
+def parse_rules(filename: str) -> List[ Rule ]:
     return parse(filename)    
 
 def logger(p: Portfolio, evt: LogEvent):
@@ -117,12 +117,14 @@ def logger(p: Portfolio, evt: LogEvent):
 def do_portfolios(yfcache: YFCache):
     if len(args.portfolio) == 0:
         return
-    portfolios = [(Portfolio.load(p), parse_actions(a)) for (p, a) in args.portfolio]
+    portfolios = [(Portfolio.load(p), parse_rules(a)) for (p, a) in args.portfolio]
     # Compute the set of unique tickers within the portfolio
     tickers: Set[ str ] = set()
-    for p, _ in portfolios:
+    for p, rules in portfolios:
         p.add_logger(logger)
         tickers.update(p.tickers())
+        for r in rules:
+            tickers.update(r.requires())
     # Computes the start date of the analysis, None allowed.
     from_datetime = args.from_datetime
     if args.auto_start:
@@ -131,7 +133,6 @@ def do_portfolios(yfcache: YFCache):
     # Line up the prices of all requested issues.
     reader = yfcache.reader(from_datetime, args.till_datetime)
     reader.require_all(list(tickers))
-    
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
     chronology: List[ pd.Timestamp ] = []
     for quote in reader:

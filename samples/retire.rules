@@ -1,0 +1,8 @@
+# Enable dividends tracking monthly.
+dividends
+
+# Every month, deposit $100
+2000-01-01 [BMS] deposit $100
+
+balance VTI: 100%
+

@@ -2,7 +2,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import List, Mapping, Tuple
+from typing import List, Mapping, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -43,6 +43,9 @@ class Rule(ABC):
             if self.count > 0:
                 self.count -= 1
         return p
+    
+    def requires(self) -> Set[ str ]:
+        return set()
             
 class Buy(Rule):
     
@@ -60,6 +63,11 @@ class Buy(Rule):
         
     def execute(self, p: Portfolio, q: Quote):
         p.buy(self.symbol, self.quantity)
+        
+    def requires(self) -> Set[ str ]:
+        symbols = super().requires()
+        symbols.add(self.symbol)
+        return symbols
             
 class ClosePosition(Rule):
     
@@ -75,6 +83,12 @@ class ClosePosition(Rule):
         position = p.position(self.symbol)        
         p.sell(self.symbol,
                position if self.count == 1 else int(position / self.count))
+        
+    def requires(self) -> Set[ str ]:
+        symbols = super().requires()
+        symbols.add(self.symbol)
+        return symbols
+
 
 class Balance(Rule):
     
@@ -129,6 +143,11 @@ class Balance(Rule):
                 if quantity > 0:
                     p.buy(ticker, quantity, memo='Cash rebalancing')
 
+    def requires(self) -> Set[ str ]:
+        symbols = super().requires()
+        for symbol in self.alloc.keys():
+            symbols.add(symbol)
+        return symbols
 
 class Dividends(Rule):
     
