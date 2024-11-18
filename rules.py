@@ -187,34 +187,4 @@ def plot_values(values: List[Tuple[ pd.Timestamp, float ]]):
     x, y = zip(*values)
     plt.plot(x, y)  #type: ignore
     plt.show()      #type: ignore
-        
-def main():
-    yfcache = YFCache()
-    reader = yfcache.reader(start_date=as_timestamp('2000-01-01'))
-    portfolio = Portfolio(500000, name='Testing')
-    portfolio.add_logger(lambda e: print(e.display()))
-    
-    reader.require_all([ 'VTI', 'QQQ', 'GOOG'])
-
-    actions = [
-        Dividends(),
-        CashInterest(0.05),
-        Buy(as_timestamp('2015-01-01'), 'BMS', 12, 'VTI', 100),
-        Buy(as_timestamp('2016-01-01'), 'B', 12, 'GOOG', 100),
-        ClosePosition(as_timestamp('2020-01-02'), 'W-MON', 52, 'VTI'),
-        Balance(as_timestamp('2022-01-01'), 'BMS', alloc={ 'VTI': 0.4, 'QQQ': 0.6 })
-    ]
-
-    values: List[ Tuple[pd.Timestamp, float] ] = []
-
-    for quote in reader:    
-        value = portfolio.value(quote)
-        for a in actions:
-            a.run(portfolio, quote)    
-        values.append((quote.timestamp, value))
-        
-    print(portfolio)
-    plot_values(values)
-
-if __name__ == '__main__':
-    main()
+ 
