@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from portfolio import Portfolio
-from utils import as_timestamp
 from yfcache import Quote, YFCache
 
 
