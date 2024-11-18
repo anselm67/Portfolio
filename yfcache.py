@@ -6,7 +6,7 @@ import os
 import pickle
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, cast
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, cast
 
 import pandas as pd
 import yfinance as yf  # type: ignore
@@ -172,7 +172,7 @@ class Reader:
         self.required.add(symbol)
         self.dirty = True
         
-    def require_all(self, symbols: List [ str ]):
+    def require_all(self, symbols: Sequence [ str ]):
         for s in symbols:
             self.require(s)
             
