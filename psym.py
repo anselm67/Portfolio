@@ -124,15 +124,12 @@ def do_portfolios(yfcache: YFCache):
         p.add_logger(logger)
         tickers.update(p.tickers())
     # Computes the start date of the analysis, None allowed.
-    from_datetime = None
+    from_datetime = args.from_datetime
     if args.auto_start:
         from_datetime = yfcache.start_date(list(tickers))
         verbose(1, f"Starting analysis on {from_datetime}")
-    elif args.from_datetime is not None:
-        from_datetime = pd.Timestamp(args.from_datetime).tz_localize('UTC')
     # Line up the prices of all requested issues.
-    reader = yfcache.reader(start_date=from_datetime,
-                            end_date=args.till_datetime)
+    reader = yfcache.reader(from_datetime, args.till_datetime)
     reader.require_all(list(tickers))
     
     values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
