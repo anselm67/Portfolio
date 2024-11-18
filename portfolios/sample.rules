@@ -1,0 +1,16 @@
+# Deposit dividends into portfolio cash.
+dividends
+# Compute a 5% yearly interest rate on cash balance.
+cash-interest 5%
+
+# Starting on 2015-01-01, deposit $100 on first business day of month, 12 times.
+2015-01-01 [12 x BMS] deposit  $100 
+
+# Rebalance the portfolio every month start on first business day.
+balance GOOG: 10%, VTI: 40%, QQQ: 20%
+
+# Starting on 2020-01-01, withdraw $100 every first business day of week, for 52 weeks.
+2020-01-01 withdraw 52 x W-MON $100
+
+# Starting on 2020-01-01, buy 120 APPL by buying 10 each week.
+2020-01-01 12 x W-MON buy 120 AAPL 

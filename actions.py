@@ -16,10 +16,12 @@ class Action(ABC):
     
     start: pd.Timestamp
     schedule: List[ pd.Timestamp ]
+    freq: str
     count: int
         
     def __init__(self, start: pd.Timestamp, freq: str, count: int = -1):
         self.start = start
+        self.freq = freq
         assert count != 0, "The count N must be > 0 (to run N times) or -1 (to run for ever)."
         if count > 0:
             self.schedule = pd.date_range(
