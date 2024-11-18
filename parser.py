@@ -101,12 +101,17 @@ def parse_Dividends(line: str, schedule: Optional[Schedule] = None) -> Dividends
 def parse_CashInterest(line: str, schedule: Optional[Schedule] = None) -> CashInterest:
     return CashInterest(parse_percent(line))
     
+# Warning:
+#     yyyy-mm-dd [B] deposit $100
+# will deposit $100 on every business day, for ever, while:
+#     yyyy-mm-dd [1xB] deposit $100
+# will deposit $100 once.
 def parse_Deposit(line: str, schedule: Optional[Schedule] = None) -> Deposit:
     amount = parse_dollars(line)
     assert schedule is not None, "Deposit requires a start date."
     return Deposit(schedule.start_date, 
                    schedule.freq or 'B', 
-                   1 if schedule.count < 0 else schedule.count, 
+                   schedule.count, 
                    amount)
 
 TARGET=re.compile(r'^\s*([^:\s]+)\s*:\s*(\d+(?:\.\d*)?%?)\s*$')
