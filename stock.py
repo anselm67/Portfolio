@@ -4,33 +4,14 @@
 # pyright: reportUnknownArgumentType=false
 
 import argparse
-import pandas as pd
-import matplotlib.pyplot as plt
-import yfinance as yf # type: ignore
-import sys
 import datetime
 import re
+import sys
 
-def parse_range(arg: str, 
-                min_value: float = 0.0, max_value: float = 1.0, 
-                ordered: bool =True):
-    try:
-        lower, upper = (0, 0)
-        values = arg.split(':')
-        if len(values) == 1:
-            lower, upper = float(arg), float(arg)
-        else:
-            lower, upper = float(values[0]), float(values[1])
-        if not ( min_value <= lower <= max_value):
-            raise ValueError(f"Lower bound {lower} should be in [{min_value}:{max_value}]")
-        if not ( min_value <= upper <= max_value):
-            raise ValueError(f"Upper bound {lower} should greater than [{min_value}:{max_value}]")
-        if ordered and lower > upper:
-            raise ValueError(f"Lower bound should be greater than upper boud {upper}")
-        return (lower, upper)
-    except ValueError as ex:
-        print(ex)
-        raise argparse.ArgumentTypeError(f"Invalid range {arg}, expect 'lower:upper'")
+import matplotlib.pyplot as plt
+import pandas as pd
+import yfinance as yf  # type: ignore
+
 
 def parse_period(arg: str):
     m = re.match(r"([0-9]+)([a-zA-z]*)", arg)
