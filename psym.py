@@ -6,7 +6,7 @@ import argparse
 import datetime
 import sys
 from parser import parse
-from typing import Any, List, Optional, Sequence, Set, Tuple
+from typing import Any, List, Optional, Sequence, Set
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -17,27 +17,6 @@ from rules import Rule
 from utils import annual_returns, dollars
 from yfcache import YFCache
 
-
-def parse_range(arg: str, 
-                min_value: float = 0.0, max_value: float = 1.0, 
-                ordered: bool=True) -> Tuple[float, float]:
-    try:
-        lower, upper = (0, 0)
-        values = arg.split(':')
-        if len(values) == 1:
-            lower, upper = float(arg), float(arg)
-        else:
-            lower, upper = float(values[0]), float(values[1])
-        if not ( min_value <= lower <= max_value):
-            raise ValueError(f"Lower bound {lower} should be in [{min_value}:{max_value}]")
-        if not ( min_value <= upper <= max_value):
-            raise ValueError(f"Upper bound {lower} should greater than [{min_value}:{max_value}]")
-        if ordered and lower > upper:
-            raise ValueError(f"Lower bound should be greater than upper boud {upper}")
-        return (lower, upper)
-    except ValueError as ex:
-        print(ex)
-        raise argparse.ArgumentTypeError(f"Invalid range {arg}, expect 'lower:upper'")
 
 class RepeatableTwoArgsAction(argparse.Action):
     def __call__(
