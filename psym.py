@@ -30,10 +30,12 @@ class RepeatableTwoArgsAction(argparse.Action):
         if getattr(namespace, self.dest) is None:
             setattr(namespace, self.dest, [])
         if not isinstance(values, list) or len(values) != 2:
-            raise ValueError(f"Expected exactly 2 arguments for {option_string}, got {values}")
+            raise ValueError(f"Expected exactly 2 arguments for {
+                             option_string}, got {values}")
         # Append the tuple of values
         getattr(namespace, self.dest).append(tuple(values))
-        
+
+
 parser = argparse.ArgumentParser(
     prog='balance.py',
     description="Explores a rebalancing strategy."
@@ -49,7 +51,7 @@ parser.add_argument('--from', type=datetime.date.fromisoformat, default=None,
 parser.add_argument('--till', type=datetime.date.fromisoformat, default=None,
                     dest='till_datetime',
                     help='Restrict analysis to data earlier than this date (YYYY-MM-DD)')
-parser.add_argument('--auto-start', action='store_true',default=False,
+parser.add_argument('--auto-start', action='store_true', default=False,
                     help='Start analysis on the first day where all tickers exist.')
 parser.add_argument('--plot', action='store_true', default=False,
                     help='Plot portfolio values by dates.')
@@ -65,16 +67,19 @@ DEBUG_ARGS = [
 ]
 args = parser.parse_args()
 
+
 def verbose(level: int, msg: str):
     if args.verbose >= level:
         print(msg)
 
+
 def exit(msg: str):
     sys.exit(msg)
 
-def plot_values(chronology: List[pd.Timestamp], 
-                names: List[ str ], 
-                values: List[ List[ float ] ]):
+
+def plot_values(chronology: List[pd.Timestamp],
+                names: List[str],
+                values: List[List[float]]):
     def formatter(value: float, _: float) -> str:
         return dollars(value)
     fig, ax1 = plt.subplots()
@@ -87,18 +92,22 @@ def plot_values(chronology: List[pd.Timestamp],
     plt.legend(title='Portfolios')
     plt.show()
 
-def parse_rules(filename: str) -> List[ Rule ]:
-    return parse(filename)    
+
+def parse_rules(filename: str) -> List[Rule]:
+    return parse(filename)
+
 
 def logger(p: Portfolio, evt: LogEvent):
     verbose(1, f"{p.name}: {evt.display()}")
 
+
 def do_portfolios(yfcache: YFCache):
-    if len(args.portfolio) == 0:
+    if not args.portfolio or len(args.portfolio) == 0:
         return
-    portfolios = [(Portfolio.load(p), parse_rules(a)) for (p, a) in args.portfolio]
+    portfolios = [(Portfolio.load(p), parse_rules(a))
+                  for (p, a) in args.portfolio]
     # Compute the set of unique tickers within the portfolio
-    tickers: Set[ str ] = set()
+    tickers: Set[str] = set()
     for p, rules in portfolios:
         p.add_logger(logger)
         tickers.update(p.tickers())
@@ -112,24 +121,26 @@ def do_portfolios(yfcache: YFCache):
     # Line up the prices of all requested issues.
     reader = yfcache.reader(from_datetime, args.till_datetime)
     reader.require_all(list(tickers))
-    values: List[ List[float] ] = [ [].copy() for _ in portfolios ]
-    chronology: List[ pd.Timestamp ] = []
+    values: List[List[float]] = [[].copy() for _ in portfolios]
+    chronology: List[pd.Timestamp] = []
     for quote in reader:
         for (p, actions), v in zip(portfolios, values):
             v.append(p.value(quote))
             for a in actions:
                 a.run(p, quote)
         chronology.append(quote.timestamp)
-        
+
     for (p, _), v in zip(portfolios, values):
         print(p)
-        print(f"Annual returns: {annual_returns(pd.to_datetime(chronology), p.initial_value, p.value()):.2f}%")
+        print(f"Annual returns: {annual_returns(pd.to_datetime(
+            chronology), p.initial_value, p.value()):.2f}%")
     if args.plot:
         plot_values(chronology, [p.name for p, _ in portfolios], values)
-    
-def main(): 
+
+
+def main():
     yfcache = YFCache()
-    
+
     # Process any cache related commands:
     if args.clear_cache:
         verbose(1, "Clearing cache")
@@ -138,6 +149,7 @@ def main():
         verbose(1, "Update cache...")
         yfcache.update()
     do_portfolios(yfcache)
-    
+
+
 if __name__ == "__main__":
     main()
