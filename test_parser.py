@@ -97,7 +97,7 @@ class TestParser(unittest.TestCase):
         self.assertEqual(len(actions), 1)
         self.assertTrue(isinstance(actions[0], Deposit))
         a = cast(Deposit, actions[0])
-        self.assertEqual(a.count, 1)
+        self.assertEqual(a.count, -1)
         self.assertEqual(a.amount, 10000)
         self.assertEqual(a.start, as_timestamp('2020-01-01'))
             
