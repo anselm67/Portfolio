@@ -8,10 +8,10 @@ range and outputs a yearly percentage gain.
 
 As an example, consider the following program in sample/retires.rules
 
-<pre>```sample .rules file
+<pre>sample .rules file
 \# Enable dividends tracking monthly.
 dividends
-```</pre>
+</pre>
 
 \# Every month, deposit $100
 2000-01-01 [BMS] deposit $100
