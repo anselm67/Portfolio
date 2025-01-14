@@ -1,4 +1,4 @@
-Portfolio simulation tool.
+# Portfolio simulation tool.
 
 This tool takes as input two things:
 - A portfolio as in a stock allocation and soem cash amount, described in a json file,
