@@ -23,7 +23,7 @@ month and stock allocation consists in 100% VTI - basically buying as much VTI a
 through time. To simulate this we run:
 
 ```bash
-\# ./psym.py --from 2000-01-01 -p '*empty*' samples/retire.rules --plot
+# ./psym.py --from 2000-01-01 -p '*empty*' samples/retire.rules --plot
 Empty Portfolio $213,654.23
         Cash: $128.90/0.06%
         VTI     $213,525.33/742/99.94%
