@@ -31,24 +31,25 @@ You can manage the cachefrom psym.py, check the help with
 
 Here is a list of files in this directory, and their purpose:
 
-psym.py
+- psym.py
     Is the portfolio simulator
-parser.py
+- parser.py
     Parser for the portfolio simulator .rules file.
-rules.py
+- rules.py
     Implements the rules supported by the portfolio simulator, 
     this is the place to go to add new rules constructs.
-yfcache.py
+- yfcache.py
     A very rudmentary yfinance cache, that just gets the job done.
-test_*py
+- test_*py
     Various unit tests.
-samples/
+- samples/
     Has various sample portfolio and rule files.
 
+The following files are historical, no longer used.
     
-entry.py
+- entry.py
     Superseeded by psym.py, simulates market entry strategies.
-rebalance.py
+- rebalance.py
     Superseeded by psym.py, simulates rebalancing strategies.
-stock.py
+- stock.py
     Hands on yfinance and pyplot example.
