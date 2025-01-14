@@ -28,3 +28,27 @@ Annual returns: 35.81%
 
 You can manage the cachefrom psym.py, check the help with 
 # ./psym.py --help
+
+Here is a list of files in this directory, and their purpose:
+
+psym.py
+    Is the portfolio simulator
+parser.py
+    Parser for the portfolio simulator .rules file.
+rules.py
+    Implements the rules supported by the portfolio simulator, 
+    this is the place to go to add new rules constructs.
+yfcache.py
+    A very rudmentary yfinance cache, that just gets the job done.
+test_*py
+    Various unit tests.
+samples/
+    Has various sample portfolio and rule files.
+
+    
+entry.py
+    Superseeded by psym.py, simulates market entry strategies.
+rebalance.py
+    Superseeded by psym.py, simulates rebalancing strategies.
+stock.py
+    Hands on yfinance and pyplot example.

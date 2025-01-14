@@ -1,13 +1,13 @@
 {
     "positions": {
-        "BIL": 5375,
-        "CSPX.L": 1289,
-        "EQQQ.SW": 945,
-        "GOOG": 7445,
-        "GOOGL": 7275,
-        "QQQ": 385,
-        "SCHD": 5553,
-        "VTI": 360
+        "BIL": 75,
+        "CSPX.L": 90,
+        "EQQQ.SW": 45,
+        "GOOG": 45,
+        "GOOGL": 72,
+        "QQQ": 30,
+        "SCHD": 50,
+        "VTI": 60
     },
     "cash": 0,
     "name": "Main"
