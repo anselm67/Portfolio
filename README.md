@@ -40,7 +40,7 @@ Here is a list of files in this directory, and their purpose:
     this is the place to go to add new rules constructs.
 - _yfcache.py_
     A very rudmentary yfinance cache, that just gets the job done.
-- _test_*py_
+- _test\_*.py_
     Various unit tests.
 - __samples/__
     Has various sample portfolio and rule files.
