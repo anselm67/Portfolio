@@ -49,7 +49,7 @@ Here is a list of files in this directory, and their purpose:
 - __samples/__
     Has various sample portfolio and rule files.
 
-The following files are historical, no longer used.
+The following files are historical and no longer used.
     
 - _entry.py_
     Superseeded by psym.py, simulates market entry strategies.
