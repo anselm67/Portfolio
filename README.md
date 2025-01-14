@@ -22,7 +22,7 @@ This simulates a portfolio, with dividend tracking, in which $100 is deposited e
 month and stock allocation consists in 100% VTI - basically buying as much VTI as posseble 
 through time. To simulate this we run:
 
-<pre>
+<pre>```bash
 \# ./psym.py --from 2000-01-01 -p '*empty*' samples/retire.rules --plot
 Empty Portfolio $213,654.23
         Cash: $128.90/0.06%
