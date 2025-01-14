@@ -11,12 +11,12 @@ As an example, consider the following program in sample/retires.rules
 <pre>sample .rules file
 \# Enable dividends tracking monthly.
 dividends
-</pre>
-
+        
 \# Every month, deposit $100
 2000-01-01 [BMS] deposit $100
 
 balance VTI: 100%
+</pre>
 
 This simulates a portfolio, with dividend tracking, in which $100 is deposited every 
 month and stock allocation consists in 100% VTI - basically buying as much VTI as posseble 
